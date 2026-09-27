@@ -462,7 +462,7 @@ footer { font-size: .8rem; color: var(--muted); text-align: center; margin-top: 
     <details>
       <summary>Werkwijze voor echt geld</summary>
       <ol>
-        <li>Controleer de SHA-256 van dit HTML-bestand tegen de waarde die je bij het maken hebt vastgelegd.</li>
+        <li>Controleer de SHA-256 van dit HTML-bestand tegen <code>SHA256SUMS</code> in de release op <code>github.com/jurgen2005/dice-seed-bip39/releases</code>, of bouw het bestand zelf opnieuw uit de broncode daar (<code>python3 build.py</code>) en vergelijk.</li>
         <li>Gebruik een offline computer, bij voorkeur opgestart van een live-USB (bijv. Tails), zonder netwerk.</li>
         <li>Gooi met een goede dobbelsteen (casinodobbelsteen ideaal). Gooi echt: schudden in je hand of een beker en laten rollen, niet neerleggen of een worp overdoen. Schrijf de worpen eerst op papier.</li>
         <li>Controleer de uitkomst in een tweede, onafhankelijke tool (Ian Coleman, Entropy, Base 10, zelfde lengte). Zelfde woorden = geen van beide tools heeft je invoer gemanipuleerd.</li>
@@ -506,7 +506,7 @@ footer { font-size: .8rem; color: var(--muted); text-align: center; margin-top: 
     </div>
   </div>
 
-  <footer>Dobbelsteen-seed v2.9 · standalone, geen externe bestanden · eigen SHA-256 met WebCrypto-dubbelcheck · BIP39 Engelse woordenlijst (SHA-256 2f5eed53…4dbda, bij laden geverifieerd)</footer>
+  <footer>Dobbelsteen-seed v2.10 · standalone, geen externe bestanden · eigen SHA-256 met WebCrypto-dubbelcheck · BIP39 Engelse woordenlijst (SHA-256 2f5eed53…4dbda, bij laden geverifieerd) · bron, releases en hashes: github.com/jurgen2005/dice-seed-bip39</footer>
 </main>
 
 <script>

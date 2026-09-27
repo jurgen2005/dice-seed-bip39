@@ -2,6 +2,10 @@
 
 Versions before the first public release were developed privately; the SHA-256 of every earlier build is kept by the maintainer.
 
+## v2.10
+
+- The page now points to this repository for verification: step 1 of "Procedure for real money" refers to `SHA256SUMS` in the GitHub release and to rebuilding with `python3 build.py`, and the footer names `github.com/jurgen2005/dice-seed-bip39`. The URL is plain text, not a link, so the page still makes no network connections.
+
 ## v2.9 (first public release)
 
 - Dutch / English interface (starts in the browser language, nothing stored).
