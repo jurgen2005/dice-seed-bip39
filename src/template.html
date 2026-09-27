@@ -1,0 +1,2352 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dobbelsteen-seed (BIP39)</title>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --ink: #14181f; --muted: #5b6573; --line: #d9dee5;
+  --accent: #2455c3; --ok: #1d7a46; --warn: #a86a00; --bad: #b3261e;
+  --ok-bg: #e6f4ec; --warn-bg: #fff4dc; --bad-bg: #fde8e6; --chip: #eef1f5;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216; --panel: #171b21; --ink: #e7eaee; --muted: #9aa4b1; --line: #2a313a;
+    --accent: #7aa2ff; --ok: #5fd08f; --warn: #f0b44c; --bad: #ff7b72;
+    --ok-bg: #12291c; --warn-bg: #2d2412; --bad-bg: #331714; --chip: #212730;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 860px; margin: 0 auto; padding: 20px 16px 60px; position: relative; }
+.langsw { position: absolute; top: 18px; right: 16px; display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.langsw button { border: 0; border-radius: 0; padding: 4px 10px; font-weight: 600; background: var(--panel, transparent); color: var(--muted); }
+.langsw button.on { background: var(--accent); color: #fff; }
+h1 { padding-right: 96px; }
+h1 { font-size: 1.45rem; margin: 0 0 4px; }
+h2 { font-size: 1.05rem; margin: 0 0 10px; }
+p { margin: 0 0 10px; }
+.sub { color: var(--muted); margin-bottom: 14px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+.badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 16px; }
+.badge { font-size: .82rem; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--chip); }
+.badge.ok { color: var(--ok); background: var(--ok-bg); border-color: transparent; }
+.badge.warn { color: var(--warn); background: var(--warn-bg); border-color: transparent; }
+.badge.bad { color: var(--bad); background: var(--bad-bg); border-color: transparent; }
+.banner { padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; font-weight: 600; }
+.banner.bad { background: var(--bad-bg); color: var(--bad); }
+.banner.warn { background: var(--warn-bg); color: var(--warn); }
+.hidden { display: none !important; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+label.opt { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+label.opt small { color: var(--muted); }
+textarea { width: 100%; min-height: 110px; font: 1.05rem/1.6 var(--mono); letter-spacing: .08em; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); resize: vertical; }
+textarea.invalid { border-color: var(--bad); }
+.dice { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin: 10px 0; }
+button { font: inherit; border-radius: 8px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); padding: 8px 14px; cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+.die { font: 700 1.3rem var(--mono); padding: 12px 0; }
+.primary { background: var(--accent); color: #fff; border-color: transparent; font-weight: 600; padding: 10px 18px; }
+@media (prefers-color-scheme: dark) { .primary { color: #0f1216; } }
+.danger { color: var(--bad); }
+.meter { position: relative; height: 14px; background: var(--chip); border-radius: 999px; overflow: hidden; margin: 12px 0 6px; }
+.meter .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--bad); transition: width .15s; }
+.meter .fill.mid { background: var(--warn); }
+.meter .fill.good { background: var(--ok); }
+.meter .mark { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); opacity: .55; }
+.legend { position: relative; height: 34px; font-size: .78rem; color: var(--muted); }
+.legend span { position: absolute; top: 0; white-space: nowrap; }
+.legend .lm, .legend .lr { transform: translateX(-50%); text-align: center; }
+.legend .lr { top: 16px; }
+.legend .l0 { left: 0; }
+.legend .lmax { right: 0; top: 16px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-top: 10px; }
+.stat { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.stat b { display: block; font: 600 1.1rem var(--mono); }
+.stat span { font-size: .8rem; color: var(--muted); }
+.status { margin-top: 10px; padding: 8px 12px; border-radius: 8px; font-weight: 600; }
+.status.bad { background: var(--bad-bg); color: var(--bad); }
+.status.mid { background: var(--warn-bg); color: var(--warn); }
+.status.good { background: var(--ok-bg); color: var(--ok); }
+.faces { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; align-items: end; height: 70px; margin: 8px 0 2px; }
+.face { background: var(--accent); opacity: .75; border-radius: 4px 4px 0 0; min-height: 2px; }
+.facelabels { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; text-align: center; font: .8rem var(--mono); color: var(--muted); }
+ul.flags { margin: 10px 0 0; padding-left: 18px; }
+ul.flags li.warn { color: var(--warn); }
+ul.flags li.strong { color: var(--bad); font-weight: 600; }
+ul.flags li.ok { color: var(--ok); }
+.words { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0; }
+@media (max-width: 620px) { .words { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 420px) { .words { grid-template-columns: repeat(2, 1fr); } }
+.word { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: 600 1rem var(--mono); background: var(--bg); }
+.word i { font-style: normal; color: var(--muted); font-weight: 400; margin-right: 6px; font-size: .8rem; }
+.secret.blur .word, .secret.blur .qrbox { filter: blur(8px); user-select: none; }
+.qrwrap { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; margin: 6px 0 12px; }
+.qrbox { background: #fff; border: 1px solid var(--line); border-radius: 8px; line-height: 0; }
+.qrbox svg { width: 264px; height: 264px; display: block; }
+.qrinfo { flex: 1; min-width: 220px; font-size: .88rem; }
+.qrinfo p { margin-bottom: 8px; }
+.warnline { color: var(--bad); font-weight: 600; }
+.qrbox { cursor: zoom-in; }
+.secret.blur .qrbox { cursor: default; }
+.fpbox { border: 2px solid var(--accent); border-radius: 10px; padding: 10px 14px; margin-bottom: 10px; background: var(--bg); }
+.fpbox .lbl { font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.fpbox b { display: block; font: 700 1.9rem/1.2 var(--mono); letter-spacing: .12em; color: var(--ink); }
+.fpbox small { color: var(--muted); }
+.pprow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 6px 0 10px; }
+.pprow input { flex: 1; min-width: 150px; font: 1rem var(--mono); padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+a.dl { display: inline-block; text-decoration: none; color: var(--ink); background: var(--chip); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; }
+a.dl:hover { border-color: var(--accent); }
+.verifyflag { background: #efe6ff; color: #5b21b6; font-weight: 700; padding: 8px 12px; border-radius: 8px; margin: 10px 0; border: 2px dashed #7c3aed; }
+@media (prefers-color-scheme: dark) { .verifyflag { background: #2a1d45; color: #c4b5fd; border-color: #8b5cf6; } }
+.seedboxes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+@media (max-width: 620px) { .seedboxes { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 420px) { .seedboxes { grid-template-columns: repeat(2, 1fr); } }
+.seedbox { display: flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; background: var(--bg); }
+.seedbox i { font-style: normal; color: var(--muted); font: .8rem var(--mono); min-width: 1.6em; }
+.seedbox input { border: 0; outline: none; background: transparent; color: var(--ink); font: 600 1rem var(--mono); width: 100%; padding: 4px 0; }
+.seedbox.ok { border-color: var(--ok); }
+.seedbox.bad { border-color: var(--bad); }
+.seedbox:focus-within { box-shadow: 0 0 0 2px var(--accent); }
+.seedsuggest { min-height: 1.8em; margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: .85rem; color: var(--muted); }
+.seedsuggest button { font: .85rem var(--mono); padding: 3px 8px; }
+.addrcheckin { flex: 1; min-width: 260px; font: .95rem var(--mono); padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+select { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); }
+.lastword { border: 1px dashed var(--line); border-radius: 8px; padding: 10px 12px; margin-top: 10px; }
+.lastword input#coinBits { font: 600 1.05rem var(--mono); letter-spacing: .15em; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); width: 11em; }
+.lastwordlist { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.lastwordlist button { font: .85rem var(--mono); padding: 3px 8px; }
+.inputflag { background: #e3f1ff; color: #0b4f8a; font-weight: 700; padding: 8px 12px; border-radius: 8px; margin: 10px 0; border: 2px dashed #2b7bd0; }
+@media (prefers-color-scheme: dark) { .inputflag { background: #10263d; color: #9ccaff; border-color: #4a90d9; } }
+.verifyopt { margin-top: 8px; font-size: .9rem; }
+.btnTest { color: var(--warn); border-style: dashed; }
+.testflag { background: var(--bad-bg); color: var(--bad); font-weight: 700; padding: 8px 12px; border-radius: 8px; margin: 10px 0; border: 2px dashed var(--bad); }
+.modal { position: fixed; inset: 0; background: rgba(0, 0, 0, .78); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 12px; }
+.modal .sheet { background: #fff; color: #000; border-radius: 10px; padding: 12px; max-width: 98vw; max-height: 98vh; overflow: auto; text-align: center; }
+.modal svg { width: min(92vw, 84vh); height: auto; display: block; margin: 0 auto; }
+.modal .bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; font-size: .85rem; color: #333; }
+.modal button { background: #eef1f5; color: #000; border-color: #ccc; }
+.modal .stepbar { flex-wrap: wrap; }
+.addrlist { display: grid; gap: 6px; margin: 6px 0 12px; }
+.addrrow { display: flex; gap: 10px; align-items: center; text-align: left; width: 100%; font: .9rem var(--mono); padding: 8px 10px; }
+.addrrow i { font-style: normal; color: var(--muted); min-width: 5.5em; }
+.addrrow span { word-break: break-all; }
+.addrsheet svg { width: min(70vw, 60vh); }
+.facebox { margin-top: 8px; font-size: .88rem; }
+.facetbl td:not(:first-child), .facetbl th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+.facetbl tr.zwarn td { color: var(--bad); font-weight: 700; }
+.facetbl tr.zmid td:last-child { color: var(--warn); }
+.cmp { border-collapse: collapse; margin: 6px 0 10px; font-size: .88rem; }
+.cmp th, .cmp td { border: 1px solid var(--line); padding: 5px 9px; text-align: left; vertical-align: top; }
+.cmp th { background: var(--bg); }
+details h4 { margin: 12px 0 4px; font-size: .95rem; }
+.xpubwrap { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; margin: 6px 0 12px; }
+.xpubqr { width: 180px; background: #fff; padding: 6px; border-radius: 8px; cursor: zoom-in; }
+.xpubqr svg { width: 100%; height: auto; display: block; }
+.xpubinfo { flex: 1; min-width: 260px; font-size: .88rem; }
+.xpubtext { display: grid; grid-template-columns: max-content 1fr; gap: 4px 10px; margin: 6px 0 8px; }
+.xpubtext dt { color: var(--muted); }
+.xpubtext dd { font: .82rem/1.45 var(--mono); word-break: break-all; margin: 0; }
+.secret.blur ~ .xpubwrap .xpubqr, .secret.blur ~ .xpubwrap .xpubtext { filter: blur(8px); user-select: none; pointer-events: none; }
+.xpubsheet svg { width: min(88vw, 72vh); }
+.xpubsheet .addrtext { font-size: .85rem; max-width: min(88vw, 72vh); margin: 8px auto 0; }
+.addrtext { font: 600 1.05rem/1.6 var(--mono); letter-spacing: .04em; margin-top: 8px; word-break: break-all; color: #000; }
+.modal .stepinfo { flex: 1; font-weight: 700; color: #1f5fd6; font-size: .95rem; min-width: 180px; }
+.modal .stepnav { display: flex; gap: 8px; }
+.modal button.on { background: #1f5fd6; color: #fff; border-color: #1f5fd6; }
+h3 { font-size: .98rem; margin: 14px 0 6px; }
+.kv { font: .82rem/1.5 var(--mono); word-break: break-all; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 6px 0; }
+.kv span { color: var(--muted); }
+details { margin-top: 6px; }
+details summary { cursor: pointer; font-weight: 600; }
+details ol, details ul { padding-left: 20px; }
+code { font-family: var(--mono); font-size: .88em; background: var(--chip); padding: 1px 5px; border-radius: 4px; }
+.small { font-size: .85rem; color: var(--muted); }
+footer { font-size: .8rem; color: var(--muted); text-align: center; margin-top: 20px; }
+@media print { .panel { break-inside: avoid; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="langsw" role="group" aria-label="Taal / Language"><button id="langNl" type="button" lang="nl">NL</button><button id="langEn" type="button" lang="en">EN</button></div>
+  <h1>Dobbelsteen-seed (BIP39)</h1>
+  <p class="sub">Genereert een BIP39-seed uitsluitend uit jouw dobbelsteenworpen. Een echte seed komt nooit uit een random-generator: alleen de knop "Testworpen (random)" gebruikt de random-generator van de browser, en een seed daaruit wordt rood gemarkeerd als TESTSEED. De pagina maakt geen netwerkverbindingen en slaat niets op.</p>
+
+  <div id="bannerOnline" class="banner bad hidden">Deze computer is online. Verbreek de netwerkverbinding (wifi uit, kabel eruit) voordat je echte worpen invoert.</div>
+  <div id="bannerSelftest" class="banner bad hidden"></div>
+
+  <div class="badges">
+    <span id="badgeNet" class="badge">Netwerk: ...</span>
+    <span id="badgeTest" class="badge">Zelftest: ...</span>
+    <span id="badgeSubtle" class="badge">SHA-256 dubbelcheck: ...</span>
+    <span class="badge ok">Geen RNG voor echte seeds, geen opslag, CSP blokkeert netwerk</span>
+  </div>
+
+  <section class="panel">
+    <h2>1. Lengte van de seed</h2>
+    <div class="row" id="lengthRow">
+      <label class="opt"><input type="radio" name="len" value="12"> 12 woorden <small>128 bit</small></label>
+      <label class="opt"><input type="radio" name="len" value="24" checked> 24 woorden <small>256 bit</small></label>
+    </div>
+    <p class="small" id="lengthInfo" style="margin-top:10px"></p>
+    <label class="opt verifyopt"><input type="checkbox" id="chkVerify"> Controlemodus: sta 50 (12 woorden) of 99 (24 woorden) worpen toe, zoals SeedSigner. Alleen om een elders gemaakte dobbelsteen-seed na te rekenen.</label>
+  </section>
+
+  <section class="panel">
+    <h2>2. Worpen invoeren</h2>
+    <p class="small">Typ elke worp als cijfer 1 tot en met 6, of gebruik de knoppen. Spaties en regeleinden mogen (worden genegeerd). Elk ander teken blokkeert de berekening, zodat een tikfout nooit stilletjes verdwijnt.</p>
+    <form autocomplete="off" onsubmit="return false">
+      <textarea id="rolls" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-gramm="false" data-lt-active="false" inputmode="numeric" placeholder="bijv. 3615 2433 6251 1456 ..."></textarea>
+    </form>
+    <div class="dice" id="dice">
+      <button class="die" data-d="1">1</button><button class="die" data-d="2">2</button><button class="die" data-d="3">3</button>
+      <button class="die" data-d="4">4</button><button class="die" data-d="5">5</button><button class="die" data-d="6">6</button>
+    </div>
+    <div class="row">
+      <button id="btnUndo">Laatste worp wissen</button>
+      <button id="btnClearRolls" class="danger">Alle worpen wissen</button>
+      <button id="btnTestRolls" class="btnTest" title="Vult willekeurige worpen in met de browser-RNG, alleen om de tool te testen">Testworpen (random)</button>
+    </div>
+    <div id="verifyBannerIn" class="verifyflag hidden">CONTROLEMODUS: het minimum is verlaagd naar het aantal worpen van SeedSigner (50 of 99). Dat heeft minder marge voor een scheve dobbelsteen dan de gewone ondergrens van deze tool (56 of 111). Gebruik dit alleen om een seed na te rekenen die je elders met dezelfde worpen hebt gemaakt.</div>
+    <div id="testBannerIn" class="testflag hidden">TESTMODUS: deze worpen komen uit de random-generator van de browser, niet van een dobbelsteen. Alleen voor testen, nooit voor echte waarde gebruiken.</div>
+    <div id="invalidMsg" class="status bad hidden"></div>
+
+    <div class="meter" aria-hidden="true"><div class="fill" id="meterFill"></div><div class="mark" id="markMin"></div><div class="mark" id="markRec"></div></div>
+    <div class="legend"><span class="l0">0</span><span class="lm" id="legendMin"></span><span class="lr" id="legendRec"></span><span class="lmax">meer = beter</span></div>
+
+    <div class="stats">
+      <div class="stat"><b id="stCount">0</b><span>worpen</span></div>
+      <div class="stat"><b id="stBits">0</b><span>bit entropie (eerlijke dobbelsteen)</span></div>
+      <div class="stat"><b id="stCons">0</b><span>bit, conservatief gerekend</span></div>
+      <div class="stat"><b id="stNeed">0</b><span>bit nodig</span></div>
+    </div>
+    <div id="levelStatus" class="status bad"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Kwaliteitscontrole van de worpen</h2>
+    <p class="small">Controleert op tikpatronen en een afwijkende verdeling. Een echte dobbelsteen haalt deze checks vrijwel altijd; een waarschuwing betekent: kijk kritisch naar je invoer of je dobbelsteen.</p>
+    <div class="faces" id="faces"></div>
+    <div class="facelabels"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span></div>
+    <ul class="flags" id="flags"></ul>
+    <details id="faceBox" class="facebox">
+      <summary>Per kant: afwijking en meetbaarheid</summary>
+      <table class="cmp facetbl">
+        <thead><tr><th>Kant</th><th>Aantal</th><th>Verwacht</th><th>Aandeel</th><th>Afwijking</th></tr></thead>
+        <tbody id="faceRows"></tbody>
+      </table>
+      <p class="small" id="facePower"></p>
+      <p class="small">De afwijking staat in standaarddeviaties (σ): hoeveel het aantal afwijkt van wat een eerlijke dobbelsteen gemiddeld geeft, gemeten in de gewone toevalsschommeling. Tot ongeveer 2σ is normaal. Vanaf 3σ wordt de kant gemarkeerd. Omdat er zes kanten zijn, gebeurt dat bij een eerlijke dobbelsteen toch nog ongeveer 1 à 2 op de 100 keer (gesimuleerd), dus herhaal de test voordat je een dobbelsteen afkeurt. Speelgoeddobbelstenen met uitgeboorde ogen hebben meestal een lichte voorkeur voor de 6 (lichtste kant) en tegen de 1. Die afwijking is te klein om je seed te schaden en ook te klein om met een paar honderd worpen te zien.</p>
+    </details>
+    <label id="confirmWrap" class="opt hidden" style="margin-top:10px">
+      <input type="checkbox" id="confirmStrong"> Ik heb dit gecontroleerd: dit zijn echte, onafhankelijke worpen.
+    </label>
+  </section>
+
+  <section class="panel">
+    <h2>Of: bestaande seed invoeren</h2>
+    <p class="small">Om een bestaande BIP39-seed (12 of 24 Engelse woorden) te controleren: Compact SeedQR, fingerprint en adressen. Het resultaat verschijnt bij stap 3.</p>
+    <button id="btnSeedInToggle">Bestaande seed invoeren</button>
+    <div id="seedInArea" class="hidden" style="margin-top:12px">
+      <div class="row">
+        <label class="opt"><input type="radio" name="seedInLen" value="12" checked> 12 woorden</label>
+        <label class="opt"><input type="radio" name="seedInLen" value="24"> 24 woorden</label>
+      </div>
+      <p class="small" style="margin-top:8px">Typ per vakje de eerste letters; zodra het woord vaststaat (meestal na 4 letters) wordt het aangevuld en spring je naar het volgende vakje. Bij korte woorden zoals "act" bevestig je met spatie, Enter of Tab, of klik je een suggestie aan. Een hele lijst plakken in het eerste vakje mag ook.</p>
+      <form autocomplete="off" onsubmit="return false"><div id="seedBoxes" class="seedboxes"></div></form>
+      <div id="seedSuggest" class="seedsuggest"></div>
+      <div class="row" style="margin-top:8px">
+        <button id="btnLastWord" disabled>Bereken 12e woord</button>
+        <span class="small" id="lastWordHint">Vul eerst de eerste 11 woorden in.</span>
+      </div>
+      <div id="lastWordArea" class="lastword hidden">
+        <p class="small" id="lastWordIntro"></p>
+        <div class="row">
+          <input type="text" id="coinBits" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="numeric" placeholder="bijv. 1011001">
+          <button id="btnLastFromCoins" class="primary" disabled>Laatste woord invullen</button>
+          <span class="small" id="coinHint"></span>
+        </div>
+        <details id="lastWordListBox">
+          <summary id="lastWordListSum">Alle geldige laatste woorden</summary>
+          <p class="small">Kies hier alleen willekeurig (bijvoorbeeld met een dobbelsteen), niet op voorkeur: een zelfgekozen "mooi" woord verlaagt de entropie. Klik een woord om het in te vullen.</p>
+          <div id="lastWordList" class="lastwordlist"></div>
+        </details>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button id="btnLoadSeed" class="primary" disabled>Seed laden</button>
+        <button id="btnClearSeedIn" class="danger">Invoer wissen</button>
+        <span id="seedInHint" class="small"></span>
+      </div>
+      <div id="seedInMsg" class="status bad hidden"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>3. Seed berekenen</h2>
+    <div class="row">
+      <button id="btnGenerate" class="primary" disabled>Bereken seed</button>
+      <span id="genHint" class="small"></span>
+    </div>
+    <div id="result" class="hidden">
+      <div id="inputBannerOut" class="inputflag hidden">INGEVOERDE SEED: niet door deze tool uit dobbelstenen gemaakt. Hoe veilig deze seed is, hangt af van hoe hij oorspronkelijk is gemaakt.</div>
+      <div id="verifyBannerOut" class="verifyflag hidden">CONTROLEMODUS: berekend met het verlaagde SeedSigner-minimum. Bedoeld om na te rekenen, niet als nieuwe seed van deze tool.</div>
+      <div id="testBannerOut" class="testflag hidden">TESTSEED (browser-RNG). Niet gebruiken voor echte waarde.</div>
+      <div class="secret" id="secret">
+        <div class="words" id="words"></div>
+        <h3>Compact SeedQR</h3>
+        <div class="qrwrap">
+          <div class="qrbox" id="qrbox"></div>
+          <div class="qrinfo">
+            <div class="fpbox">
+              <span class="lbl">Master fingerprint (BIP32)</span>
+              <b id="fpVal"></b>
+              <small id="fpNote"></small>
+            </div>
+            <label class="small" for="pp">BIP39-passphrase (optioneel, verandert de fingerprint, niet de woorden of de QR)</label>
+            <div class="pprow">
+              <input type="password" id="pp" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-gramm="false" placeholder="leeg = geen passphrase">
+              <button id="ppShow" type="button">Toon</button>
+            </div>
+            <div id="ppWarn" class="status mid hidden"></div>
+            <p><b>Formaat:</b> <span id="qrMeta"></span></p>
+            <p>Compact SeedQR (SeedSigner-standaard) bevat de ruwe entropie zonder checksum, als QR in bytemodus met foutcorrectie L. Te scannen met SeedSigner en andere signing devices die Compact SeedQR ondersteunen.</p>
+            <p class="warnline">Deze QR-code is je seed. Niet fotograferen en niet met een telefoon of online apparaat scannen. Alleen overtekenen op papier of metaal, of scannen met een air-gapped signing device.</p>
+            <label class="opt"><input type="checkbox" id="qrGrid"> Raster tonen (hulp bij overtekenen)</label>
+            <p class="small" style="margin-top:8px">Klik op de QR voor een vergroting, met een modus "Blok voor blok" om de QR per blok over te tekenen (Vorige/Volgende of pijltjestoetsen). Het raster volgt de SeedSigner-indeling: blokken van 7 x 7 vakjes bij 12 woorden (3 x 3 blokken) en 5 x 5 vakjes bij 24 woorden (5 x 5 blokken), kolommen genummerd (1, 2, ...) en rijen met letters (A, B, ...), gelijk aan de printbare sjablonen onderaan deze pagina.</p>
+          </div>
+        </div>
+      </div>
+      <h3>Ontvangstadressen (BIP-84, native SegWit)</h3>
+      <p class="small">De eerste 10 ontvangstadressen van pad <code>m/84'/0'/0'/0/0</code> tot en met <code>/9</code>, voor de wallet van de fingerprint hierboven (met passphrase als die is ingevuld). Vergelijk ze met je wallet (bijvoorbeeld Sparrow) om te controleren dat je de juiste wallet hebt. Klik op een adres voor de QR-code.</p>
+      <div id="addrList" class="addrlist"></div>
+      <h3>Watch-only: account-sleutel (xpub/zpub)</h3>
+      <p class="small">De publieke sleutel van account <code>m/84'/0'/0'</code>, om in een watch-only wallet (bijvoorbeeld Sparrow) te laden. Die ziet saldo en adressen en kan transacties voorbereiden, maar niet ondertekenen. Hoort bij de fingerprint hierboven: een andere passphrase geeft een andere sleutel.</p>
+      <div class="xpubwrap">
+        <div id="xpubQr" class="xpubqr" title="Klik voor een grote QR"></div>
+        <div class="xpubinfo">
+          <label class="small">Inhoud van de QR
+            <select id="xpubFmt">
+              <option value="descriptor" selected>Descriptor: wpkh([fingerprint/pad]xpub/&lt;0;1&gt;/*)#checksum</option>
+              <option value="keyOrigin">Key origin: [fingerprint/pad]zpub</option>
+              <option value="zpub">Alleen zpub</option>
+              <option value="xpub">Alleen xpub</option>
+            </select>
+          </label>
+          <dl class="xpubtext">
+            <dt>Fingerprint</dt><dd id="xpFp"></dd>
+            <dt>Pad</dt><dd id="xpPath"></dd>
+            <dt>zpub</dt><dd id="xpZpub"></dd>
+            <dt>xpub</dt><dd id="xpXpub"></dd>
+            <dt>Descriptor</dt><dd id="xpDesc"></dd>
+          </dl>
+          <p class="small">zpub en xpub bevatten dezelfde sleutel; zpub (SLIP-132) vertelt de wallet ook dat het om native SegWit gaat, bij een losse xpub moet je in de wallet zelf "native SegWit (P2WPKH)" kiezen. De descriptor bevat fingerprint, pad, adrestype en ontvangst- en wisselketen (<code>&lt;0;1&gt;</code>, BIP-389); oudere software kent die schrijfwijze niet. Controleer na het importeren of de eerste adressen gelijk zijn aan de lijst hierboven.</p>
+          <p class="warnline small">Geen geheim, wel privacygevoelig: wie deze sleutel heeft, ziet alle adressen en saldo's van dit account. En de xpub samen met de privésleutel van een enkel adres uit dit account geeft alle privésleutels van het account. Alleen delen met je eigen watch-only wallet.</p>
+        </div>
+      </div>
+      <h3>Adres controleren</h3>
+      <p class="small">Plak of typ een adres om te controleren of het bij deze wallet hoort (BIP-84, <code>bc1q...</code>). Er wordt gezocht in de ontvangstadressen (<code>.../0/i</code>) en de wisseladressen (<code>.../1/i</code>), met de passphrase als die is ingevuld.</p>
+      <div class="row">
+        <input type="text" id="addrCheckIn" class="addrcheckin" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="bc1q...">
+        <select id="addrCheckRange" title="Aantal adressen per keten">
+          <option value="100" selected>eerste 100</option>
+          <option value="500">eerste 500</option>
+          <option value="1000">eerste 1000</option>
+        </select>
+        <button id="btnAddrCheck">Controleer</button>
+      </div>
+      <div id="addrCheckOut" class="status hidden"></div>
+      <div class="row" style="margin-top:12px">
+        <button id="btnToggle">Verbergen</button>
+        <button id="btnWipe" class="danger">Alles wissen</button>
+        <label class="small">Automatisch verbergen na
+          <select id="autoHide">
+            <option value="0">nooit</option>
+            <option value="60">1 minuut</option>
+            <option value="120" selected>2 minuten</option>
+            <option value="300">5 minuten</option>
+            <option value="600">10 minuten</option>
+          </select>
+          zonder activiteit</label>
+        <span id="autoHideInfo" class="small"></span>
+      </div>
+      <details>
+        <summary>Technische details (voor controle)</summary>
+        <div class="kv"><span>Invoer (alleen cijfers, zo gehasht):</span><br><span id="dRolls"></span></div>
+        <div class="kv"><span>SHA-256(invoer):</span><br><span id="dHash"></span></div>
+        <div class="kv"><span>Gebruikte entropie (eerste <b id="dEntBits"></b> bit):</span><br><span id="dEnt"></span></div>
+        <div class="kv"><span>BIP39-checksum (bits):</span> <span id="dCs"></span></div>
+        <div class="kv"><span>Woordindexen (0 tot 2047):</span><br><span id="dIdx"></span></div>
+      </details>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Printbare sjablonen (blanco)</h2>
+    <p class="small">De officiële SeedSigner grid-sjablonen met fingerprintveld (<code>grid_wfingerprint</code>), met dezelfde blokindeling als de vergroting. Finder- en alignmentpatronen zijn voorgedrukt. Formaat US Letter: print op A4 met "passend maken" of op 100% (past ook). De sjablonen zijn leeg en bevatten geen geheimen: print ze vooraf, niet met een seed op het scherm. Noteer de fingerprint uit deze tool in het veld naast het vingerafdruk-icoon.</p>
+    <div class="row">
+      <a class="dl" id="dl12" download="grid_wfingerprint_21x21.pdf" href="data:application/pdf;base64,__PDF21__">Sjabloon 12 woorden (21 x 21)</a>
+      <a class="dl" id="dl24" download="grid_wfingerprint_25x25.pdf" href="data:application/pdf;base64,__PDF25__">Sjabloon 24 woorden (25 x 25)</a>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Controleren en veilig gebruiken</h2>
+    <details>
+      <summary>Hoe de seed wordt berekend</summary>
+      <ol>
+        <li>Alle worpen als cijfers achter elkaar (spaties verwijderd), bijv. <code>3615243362...</code>.</li>
+        <li>SHA-256 over die tekst (ASCII). Alle worpen tellen mee, hoeveel het er ook zijn.</li>
+        <li>De eerste 128 bit (12 woorden) of alle 256 bit (24 woorden) is de entropie.</li>
+        <li>Standaard BIP39: checksum = eerste ENT/32 bits van SHA-256(entropie), daarna groepen van 11 bits naar de Engelse woordenlijst.</li>
+        <li>Master fingerprint: BIP39-seed via PBKDF2-HMAC-SHA512 (2048 rondes, salt "mnemonic" + passphrase), BIP32-masterkey via HMAC-SHA512("Bitcoin seed"), publieke sleutel op secp256k1, eerste 4 bytes van RIPEMD-160(SHA-256(pubkey)). De PBKDF2-uitkomst wordt gecontroleerd tegen WebCrypto. De fingerprint is geen geheim en blijft zichtbaar bij verbergen.</li>
+        <li>Compact SeedQR: dezelfde entropie (16 of 32 bytes) als QR-code in bytemodus, foutcorrectie L, versie 1 (21 x 21) of versie 2 (25 x 25). De QR wordt na het maken teruggelezen en gecontroleerd.</li>
+      </ol>
+      <p>Dit is dezelfde methode als Ian Coleman BIP39 met <b>Entropy Type = Base 10</b> en als de Bitcoin Seed Tool met <b>Dice</b>. Negeer bij Ian in base 10 de entropieteller: die telt 3 bit per worp en overschat dus.</p>
+    </details>
+    <details>
+      <summary>Hoe de randomizer werkt (knop "Testworpen (random)")</summary>
+      <p>De knop is er alleen om de tool snel uit te proberen zonder te gooien. Een seed uit testworpen is nooit bedoeld voor echte waarde.</p>
+      <ol>
+        <li><b>Bron.</b> <code>crypto.getRandomValues</code>: de cryptografische random-generator van de browser, die zijn willekeur uit het besturingssysteem haalt (zie hieronder). Is die niet beschikbaar, dan weigert de knop. Er is geen terugval op <code>Math.random</code>.</li>
+        <li><b>Van byte naar worp.</b> De browser levert bytes van 0 tot en met 255. Bytes van 252 en hoger worden weggegooid, de rest wordt <code>1 + (byte mod 6)</code>. Omdat 252 = 42 x 6 komt elke kant precies 42 van de 252 keer voor: exact 1/6, zonder de lichte voorkeur die een gewone deling met rest zou geven. Gemiddeld valt 1,6% van de bytes af; er wordt bijgetrokken tot het aantal klopt.</li>
+        <li><b>Aantal.</b> Precies het aanbevolen aantal voor de gekozen lengte: 100 worpen bij 12 woorden, 199 bij 24 woorden. Ze worden in groepjes van 5 in het invoerveld gezet, alsof je ze zelf had getypt.</li>
+        <li><b>Daarna niets bijzonders.</b> Vanaf het invoerveld volgen testworpen exact dezelfde weg als echte worpen: kwaliteitsanalyse, SHA-256, BIP39. De randomizer maakt dus geen seed, hij vult alleen worpen in. Daardoor kun je ook de controle in een tweede tool oefenen: de testworpen in Ian Coleman (Base 10) geven dezelfde woorden.</li>
+        <li><b>Markering.</b> De invoer, de uitkomst, de fingerprint, de vergrote SeedQR, de adres-QR en de xpub-QR krijgen het label TESTSEED. Het vinkje voor bevestiging van een zwakke invoer wordt uitgezet. De markering blijft staan als je daarna worpen wijzigt of bijtypt, want de invoer blijft dan grotendeels machinaal. Ze verdwijnt pas bij een leeg invoerveld, "Alles wissen", een ingevoerde bestaande seed of het verlaten van de pagina.</li>
+      </ol>
+      <h4>Waar de willekeur vandaan komt</h4>
+      <p><code>crypto.getRandomValues</code> bedenkt zelf niets. Chrome, Firefox en Safari halen de bytes bij de generator van het besturingssysteem: op macOS via CommonCrypto (<code>CCRandomGenerateBytes</code>), op Linux via <code>getrandom</code> of <code>/dev/urandom</code>, op Windows via de systeem-RNG. Die generator wordt gevoed met ruis uit de hardware (interrupts, timing en op moderne processors een hardware-RNG) en daarna door een cryptografisch algoritme gehaald. Het is dezelfde bron die ook SSH-sleutels, TLS-verbindingen en schijfversleuteling maakt. De precieze functie per browser en OS verschilt per versie.</p>
+      <p>Het tegendeel is <code>Math.random</code>: snel, maar niet cryptografisch. Uit een handvol uitkomsten is de rest te voorspellen. Deze pagina gebruikt die functie nergens.</p>
+      <h4>Hoe betrouwbaar: wat wel</h4>
+      <ul>
+        <li>Als bron van willekeur is hij uitstekend, beter dan dobbelstenen: geen scheve kanten, geen afgeronde hoeken, geen tel- of tikfouten.</li>
+        <li>Voor zover bekend is er in recente jaren geen praktische aanval geweest op <code>getRandomValues</code> zelf in een grote browser.</li>
+        <li>Deze pagina faalt dicht: zonder <code>getRandomValues</code> weigert de knop, er is geen terugval.</li>
+      </ul>
+      <h4>Hoe betrouwbaar: wat niet</h4>
+      <ul>
+        <li><b>Niet te testen.</b> Een generator die met maar 40 bit is gestart, slaagt voor elke statistische test; de uitkomst ziet er precies even willekeurig uit. Aan een seed zie je niet of de generator goed was. Je kunt alleen vertrouwen op drie dingen: dat dit bestand echt is (SHA-256), dat browser en besturingssysteem niet gemanipuleerd zijn, en dat er nergens een stille terugval in de code zit.</li>
+        <li><b>Het ging mis in de laag erboven.</b> De bekende rampen zaten niet in de browsergenerator, maar in code eromheen:
+          <ul>
+            <li>Randstorm (openbaar 2023): oude JavaScript-walletcode (jsbn) viel in browsers uit die tijd terug op <code>Math.random</code>. Wallets van ongeveer 2011 tot 2015 zijn daardoor zwak.</li>
+            <li>CryptoJS (CVE-2026-71851, misbruik ontdekt mei 2026): versies van voor 4.0.0 gebruikten een eigen generator, gestart met <code>Math.random</code>. Een 128-bit sleutel had nog maar ongeveer 2<sup>39</sup> mogelijkheden; wallets en browserextensies zijn leeggehaald.</li>
+            <li>Coldcard (2026): stille terugval op een zwakke interne generator in een hardware wallet.</li>
+          </ul>
+          Steeds hetzelfde patroon: een terugval op een zwakke bron die niemand opmerkt.</li>
+        <li><b>De onderste laag is niet heilig.</b> Zeldzaam, maar het is gebeurd: bij Debian/OpenSSL (2008) maakte een wijziging in het besturingssysteem twee jaar lang alle sleutels voorspelbaar. Ook een virtuele machine die uit een snapshot wordt hersteld, kan zijn generatorstatus herhalen. Op een gewone computer of een vers opgestarte live-USB speelt dat niet.</li>
+        <li><b>Een aangepaste kopie van deze pagina</b> kan "willekeurige" worpen uit een voor de aanvaller bekende reeks halen. Dat is aan de uitkomst niet te zien.</li>
+        <li>De worpen staan op het scherm en in het geheugen van een computer die mogelijk online is of was.</li>
+      </ul>
+      <h4>Afgezet tegen dobbelstenen</h4>
+      <table class="cmp">
+        <tr><th></th><th>Browser-RNG</th><th>Dobbelstenen</th></tr>
+        <tr><td>Kwaliteit van de willekeur</td><td>Beter</td><td>Goed genoeg met 100/199 worpen</td></tr>
+        <tr><td>Te controleren</td><td>Nee</td><td>Ja, narekenen in een tweede tool</td></tr>
+        <tr><td>Kan ongemerkt falen</td><td>Ja</td><td>Nee: wat je gooit en typt, zie je zelf</td></tr>
+      </table>
+      <p><b>Conclusie.</b> Als bron van willekeur is de browser-RNG beter dan je dobbelstenen, maar voor een seed met echte waarde toch de slechtere keuze, omdat je niet kunt aantonen dat hij goed werkte. Voor deze testknop is hij ruim voldoende. Wil je geen dobbelstenen gebruiken, dan is de generator van een hardware wallet een betere keuze dan deze knop; controleerbaar is die net zo min, dat is de les van Coldcard.</p>
+    </details>
+    <details>
+      <summary>Waarom deze minima</summary>
+      <ul>
+        <li>Een perfecte dobbelsteen levert log2(6) = 2,585 bit per worp. Goedkope dobbelstenen zijn nooit perfect.</li>
+        <li>De harde ondergrens rekent daarom conservatief met 2,32 bit per worp (log2 5). Dat is wat overblijft als één kant zelfs 20% kans heeft in plaats van 16,7%. Ook met zo'n afwijkende dobbelsteen haal je de volle 128 of 256 bit.</li>
+        <li>Minimum: 56 worpen voor 12 woorden, 111 worpen voor 24 woorden. Daaronder weigert de tool.</li>
+        <li>Aanbevolen: 2x de benodigde entropie bij een eerlijke dobbelsteen (100 resp. 199 worpen). Meer worpen kan nooit kwaad: SHA-256 comprimeert alles tot de benodigde bits, extra worpen vergroten alleen de marge.</li>
+      </ul>
+    </details>
+    <details>
+      <summary>Werkwijze voor echt geld</summary>
+      <ol>
+        <li>Controleer de SHA-256 van dit HTML-bestand tegen de waarde die je bij het maken hebt vastgelegd.</li>
+        <li>Gebruik een offline computer, bij voorkeur opgestart van een live-USB (bijv. Tails), zonder netwerk.</li>
+        <li>Gooi met een goede dobbelsteen (casinodobbelsteen ideaal). Gooi echt: schudden in je hand of een beker en laten rollen, niet neerleggen of een worp overdoen. Schrijf de worpen eerst op papier.</li>
+        <li>Controleer de uitkomst in een tweede, onafhankelijke tool (Ian Coleman, Entropy, Base 10, zelfde lengte). Zelfde woorden = geen van beide tools heeft je invoer gemanipuleerd.</li>
+        <li>Schrijf de woorden op papier of metaal. Geen foto, geen screenshot, niet kopiëren/plakken. Wil je de Compact SeedQR bewaren: teken hem over op een SeedQR-sjabloon (raster aanzetten), niet printen op een netwerkprinter.</li>
+        <li>Klik "Alles wissen", sluit de browser en zet de computer uit.</li>
+        <li>Overweeg een sterke BIP39-passphrase als extra laag.</li>
+        <li>De knop "Testworpen (random)" is alleen voor het uitproberen van de tool. Die worpen komen uit de browser-RNG, precies het soort bron dat je met dobbelstenen wilt vermijden. Een testseed is rood gemarkeerd.</li>
+      </ol>
+    </details>
+  </section>
+
+  <div id="addrModal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Adres als QR-code">
+    <div class="sheet addrsheet">
+      <div class="bar"><span id="addrModalPath"></span><button id="btnAddrClose">Sluiten (Esc)</button></div>
+      <div id="addrModalQr"></div>
+      <div id="addrModalText" class="addrtext"></div>
+      <div class="bar stepbar"><button id="btnAddrPrev">&#9664; Vorige</button><span></span><button id="btnAddrNext">Volgende &#9654;</button></div>
+    </div>
+  </div>
+
+  <div id="xpubModal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Account-sleutel als QR-code">
+    <div class="sheet addrsheet xpubsheet">
+      <div class="bar"><span id="xpubModalMeta"></span><button id="btnXpubClose">Sluiten (Esc)</button></div>
+      <div id="xpubModalQr"></div>
+      <div id="xpubModalText" class="addrtext"></div>
+    </div>
+  </div>
+
+  <div id="qrModal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Vergrote Compact SeedQR">
+    <div class="sheet">
+      <div class="bar"><span id="qrModalMeta"></span><button id="btnModalClose">Sluiten (Esc)</button></div>
+      <div class="bar stepbar">
+        <button id="btnStep">Blok voor blok</button>
+        <span id="stepInfo" class="stepinfo"></span>
+        <span class="stepnav">
+          <button id="btnPrev" disabled>&#9664; Vorige</button>
+          <button id="btnNext" disabled>Volgende &#9654;</button>
+        </span>
+      </div>
+      <div id="qrModalBody"></div>
+    </div>
+  </div>
+
+  <footer>Dobbelsteen-seed v2.9 · standalone, geen externe bestanden · eigen SHA-256 met WebCrypto-dubbelcheck · BIP39 Engelse woordenlijst (SHA-256 2f5eed53…4dbda, bij laden geverifieerd)</footer>
+</main>
+
+<script>
+'use strict';
+(function () {
+
+/* ---------- Language: starts in the browser language, NL/EN switch top right, nothing is stored ---------- */
+let LANG = /^nl/i.test(navigator.language || '') ? 'nl' : 'en';
+const tx = (nl, en) => LANG === 'en' ? en : nl;
+const I18N_EN = __I18N_EN__;
+
+/* ---------- BIP39 English wordlist (2048) ---------- */
+const WORDS = __WORDLIST__;
+const WORDLIST_SHA256 = '2f5eed53a4727b4bf8880d8f3f199efc90e58503646d9ff8eff3a2ed3b24dbda';
+
+/* ---------- Parameters ---------- */
+const LOG2_6 = Math.log2(6);       // 2.585 bit per roll, perfect die
+const LOG2_5 = Math.log2(5);       // 2.322 bit per roll, conservative (face up to 20%)
+const LENGTHS = {
+  12: { bits: 128, min: Math.ceil(128 / LOG2_5), rec: Math.ceil(2 * 128 / LOG2_6) },  // 56 / 100
+  24: { bits: 256, min: Math.ceil(256 / LOG2_5), rec: Math.ceil(2 * 256 / LOG2_6) }   // 111 / 199
+};
+
+/* ---------- SHA-256 (FIPS 180-4), pure JS ---------- */
+const K = new Uint32Array([
+  0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+  0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+  0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+  0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+  0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+  0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+  0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+  0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+]);
+function rotr(x, n) { return (x >>> n) | (x << (32 - n)); }
+function sha256(bytes) {
+  const l = bytes.length;
+  const n = ((l + 9 + 63) >> 6) << 6;
+  const m = new Uint8Array(n);
+  m.set(bytes);
+  m[l] = 0x80;
+  const dv = new DataView(m.buffer);
+  dv.setUint32(n - 8, Math.floor(l / 0x20000000));
+  dv.setUint32(n - 4, (l << 3) >>> 0);
+  const H = new Uint32Array([0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19]);
+  const W = new Uint32Array(64);
+  for (let o = 0; o < n; o += 64) {
+    for (let t = 0; t < 16; t++) W[t] = dv.getUint32(o + 4 * t);
+    for (let t = 16; t < 64; t++) {
+      const s0 = rotr(W[t - 15], 7) ^ rotr(W[t - 15], 18) ^ (W[t - 15] >>> 3);
+      const s1 = rotr(W[t - 2], 17) ^ rotr(W[t - 2], 19) ^ (W[t - 2] >>> 10);
+      W[t] = (W[t - 16] + s0 + W[t - 7] + s1) >>> 0;
+    }
+    let a = H[0], b = H[1], c = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
+    for (let t = 0; t < 64; t++) {
+      const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+      const ch = (e & f) ^ (~e & g);
+      const t1 = (h + S1 + ch + K[t] + W[t]) >>> 0;
+      const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+      const maj = (a & b) ^ (a & c) ^ (b & c);
+      const t2 = (S0 + maj) >>> 0;
+      h = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = b; b = a; a = (t1 + t2) >>> 0;
+    }
+    H[0] = (H[0] + a) >>> 0; H[1] = (H[1] + b) >>> 0; H[2] = (H[2] + c) >>> 0; H[3] = (H[3] + d) >>> 0;
+    H[4] = (H[4] + e) >>> 0; H[5] = (H[5] + f) >>> 0; H[6] = (H[6] + g) >>> 0; H[7] = (H[7] + h) >>> 0;
+  }
+  const out = new Uint8Array(32);
+  const odv = new DataView(out.buffer);
+  for (let i = 0; i < 8; i++) odv.setUint32(4 * i, H[i]);
+  return out;
+}
+function ascii(str) {
+  const b = new Uint8Array(str.length);
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    if (c > 0x7f) throw new Error(tx('niet-ASCII teken', 'non-ASCII character'));
+    b[i] = c;
+  }
+  return b;
+}
+function hex(bytes) { return Array.from(bytes, x => x.toString(16).padStart(2, '0')).join(''); }
+function fromHex(h) { const b = new Uint8Array(h.length / 2); for (let i = 0; i < b.length; i++) b[i] = parseInt(h.substr(2 * i, 2), 16); return b; }
+function bits(bytes) { return Array.from(bytes, x => x.toString(2).padStart(8, '0')).join(''); }
+
+/* ---------- SHA-512, HMAC-SHA512, PBKDF2, RIPEMD-160, secp256k1 (for the master fingerprint) ---------- */
+const K512 = new Uint32Array([0x428a2f98,0xd728ae22,0x71374491,0x23ef65cd,0xb5c0fbcf,0xec4d3b2f,0xe9b5dba5,0x8189dbbc,0x3956c25b,0xf348b538,0x59f111f1,0xb605d019,0x923f82a4,0xaf194f9b,0xab1c5ed5,0xda6d8118,0xd807aa98,0xa3030242,0x12835b01,0x45706fbe,0x243185be,0x4ee4b28c,0x550c7dc3,0xd5ffb4e2,0x72be5d74,0xf27b896f,0x80deb1fe,0x3b1696b1,0x9bdc06a7,0x25c71235,0xc19bf174,0xcf692694,0xe49b69c1,0x9ef14ad2,0xefbe4786,0x384f25e3,0x0fc19dc6,0x8b8cd5b5,0x240ca1cc,0x77ac9c65,0x2de92c6f,0x592b0275,0x4a7484aa,0x6ea6e483,0x5cb0a9dc,0xbd41fbd4,0x76f988da,0x831153b5,0x983e5152,0xee66dfab,0xa831c66d,0x2db43210,0xb00327c8,0x98fb213f,0xbf597fc7,0xbeef0ee4,0xc6e00bf3,0x3da88fc2,0xd5a79147,0x930aa725,0x06ca6351,0xe003826f,0x14292967,0x0a0e6e70,0x27b70a85,0x46d22ffc,0x2e1b2138,0x5c26c926,0x4d2c6dfc,0x5ac42aed,0x53380d13,0x9d95b3df,0x650a7354,0x8baf63de,0x766a0abb,0x3c77b2a8,0x81c2c92e,0x47edaee6,0x92722c85,0x1482353b,0xa2bfe8a1,0x4cf10364,0xa81a664b,0xbc423001,0xc24b8b70,0xd0f89791,0xc76c51a3,0x0654be30,0xd192e819,0xd6ef5218,0xd6990624,0x5565a910,0xf40e3585,0x5771202a,0x106aa070,0x32bbd1b8,0x19a4c116,0xb8d2d0c8,0x1e376c08,0x5141ab53,0x2748774c,0xdf8eeb99,0x34b0bcb5,0xe19b48a8,0x391c0cb3,0xc5c95a63,0x4ed8aa4a,0xe3418acb,0x5b9cca4f,0x7763e373,0x682e6ff3,0xd6b2b8a3,0x748f82ee,0x5defb2fc,0x78a5636f,0x43172f60,0x84c87814,0xa1f0ab72,0x8cc70208,0x1a6439ec,0x90befffa,0x23631e28,0xa4506ceb,0xde82bde9,0xbef9a3f7,0xb2c67915,0xc67178f2,0xe372532b,0xca273ece,0xea26619c,0xd186b8c7,0x21c0c207,0xeada7dd6,0xcde0eb1e,0xf57d4f7f,0xee6ed178,0x06f067aa,0x72176fba,0x0a637dc5,0xa2c898a6,0x113f9804,0xbef90dae,0x1b710b35,0x131c471b,0x28db77f5,0x23047d84,0x32caab7b,0x40c72493,0x3c9ebe0a,0x15c9bebc,0x431d67c4,0x9c100d4c,0x4cc5d4be,0xcb3e42b6,0x597f299c,0xfc657e2a,0x5fcb6fab,0x3ad6faec,0x6c44198c,0x4a475817]);
+const H512 = new Uint32Array([0x6a09e667,0xf3bcc908,0xbb67ae85,0x84caa73b,0x3c6ef372,0xfe94f82b,0xa54ff53a,0x5f1d36f1,0x510e527f,0xade682d1,0x9b05688c,0x2b3e6c1f,0x1f83d9ab,0xfb41bd6b,0x5be0cd19,0x137e2179]);
+const TWO32 = 4294967296;
+function sha512(bytes) {
+  const l = bytes.length, n = ((l + 17 + 127) >> 7) << 7;
+  const m = new Uint8Array(n);
+  m.set(bytes);
+  m[l] = 0x80;
+  const dv = new DataView(m.buffer);
+  dv.setUint32(n - 8, Math.floor(l / 0x20000000));
+  dv.setUint32(n - 4, (l << 3) >>> 0);
+  const H = H512.slice();
+  const Wh = new Uint32Array(80), Wl = new Uint32Array(80);
+  for (let o = 0; o < n; o += 128) {
+    for (let t = 0; t < 16; t++) { Wh[t] = dv.getUint32(o + 8 * t); Wl[t] = dv.getUint32(o + 8 * t + 4); }
+    for (let t = 16; t < 80; t++) {
+      let xh = Wh[t - 15], xl = Wl[t - 15];
+      const s0h = ((xh >>> 1) | (xl << 31)) ^ ((xh >>> 8) | (xl << 24)) ^ (xh >>> 7);
+      const s0l = ((xl >>> 1) | (xh << 31)) ^ ((xl >>> 8) | (xh << 24)) ^ ((xl >>> 7) | (xh << 25));
+      xh = Wh[t - 2]; xl = Wl[t - 2];
+      const s1h = ((xh >>> 19) | (xl << 13)) ^ ((xl >>> 29) | (xh << 3)) ^ (xh >>> 6);
+      const s1l = ((xl >>> 19) | (xh << 13)) ^ ((xh >>> 29) | (xl << 3)) ^ ((xl >>> 6) | (xh << 26));
+      const lo = Wl[t - 16] + (s0l >>> 0) + Wl[t - 7] + (s1l >>> 0);
+      const hi = Wh[t - 16] + (s0h >>> 0) + Wh[t - 7] + (s1h >>> 0) + Math.floor(lo / TWO32);
+      Wl[t] = lo >>> 0; Wh[t] = hi >>> 0;
+    }
+    let ah = H[0], al = H[1], bh = H[2], bl = H[3], ch = H[4], cl = H[5], dh = H[6], dl = H[7];
+    let eh = H[8], el = H[9], fh = H[10], fl = H[11], gh = H[12], gl = H[13], hh = H[14], hl = H[15];
+    for (let t = 0; t < 80; t++) {
+      const S1h = ((eh >>> 14) | (el << 18)) ^ ((eh >>> 18) | (el << 14)) ^ ((el >>> 9) | (eh << 23));
+      const S1l = ((el >>> 14) | (eh << 18)) ^ ((el >>> 18) | (eh << 14)) ^ ((eh >>> 9) | (el << 23));
+      const chh = (eh & fh) ^ (~eh & gh), chl = (el & fl) ^ (~el & gl);
+      let lo = hl + (S1l >>> 0) + (chl >>> 0) + K512[2 * t + 1] + Wl[t];
+      let hi = hh + (S1h >>> 0) + (chh >>> 0) + K512[2 * t] + Wh[t] + Math.floor(lo / TWO32);
+      const t1l = lo >>> 0, t1h = hi >>> 0;
+      const S0h = ((ah >>> 28) | (al << 4)) ^ ((al >>> 2) | (ah << 30)) ^ ((al >>> 7) | (ah << 25));
+      const S0l = ((al >>> 28) | (ah << 4)) ^ ((ah >>> 2) | (al << 30)) ^ ((ah >>> 7) | (al << 25));
+      const majh = (ah & bh) ^ (ah & ch) ^ (bh & ch), majl = (al & bl) ^ (al & cl) ^ (bl & cl);
+      lo = (S0l >>> 0) + (majl >>> 0);
+      hi = (S0h >>> 0) + (majh >>> 0) + Math.floor(lo / TWO32);
+      const t2l = lo >>> 0, t2h = hi >>> 0;
+      hh = gh; hl = gl; gh = fh; gl = fl; fh = eh; fl = el;
+      lo = dl + t1l; eh = (dh + t1h + Math.floor(lo / TWO32)) >>> 0; el = lo >>> 0;
+      dh = ch; dl = cl; ch = bh; cl = bl; bh = ah; bl = al;
+      lo = t1l + t2l; ah = (t1h + t2h + Math.floor(lo / TWO32)) >>> 0; al = lo >>> 0;
+    }
+    const v = [ah, al, bh, bl, ch, cl, dh, dl, eh, el, fh, fl, gh, gl, hh, hl];
+    for (let i = 0; i < 16; i += 2) {
+      const lo = H[i + 1] + v[i + 1];
+      H[i] = (H[i] + v[i] + Math.floor(lo / TWO32)) >>> 0;
+      H[i + 1] = lo >>> 0;
+    }
+  }
+  const out = new Uint8Array(64), odv = new DataView(out.buffer);
+  for (let i = 0; i < 16; i++) odv.setUint32(4 * i, H[i]);
+  return out;
+}
+function concatBytes(...arrs) {
+  const out = new Uint8Array(arrs.reduce((s, a) => s + a.length, 0));
+  let o = 0;
+  for (const a of arrs) { out.set(a, o); o += a.length; }
+  return out;
+}
+function hmacSha512(key, msg) {
+  if (key.length > 128) key = sha512(key);
+  const k = new Uint8Array(128);
+  k.set(key);
+  const ipad = k.map(b => b ^ 0x36), opad = k.map(b => b ^ 0x5c);
+  return sha512(concatBytes(opad, sha512(concatBytes(ipad, msg))));
+}
+function pbkdf2Sha512(pw, salt, iter) {
+  let u = hmacSha512(pw, concatBytes(salt, new Uint8Array([0, 0, 0, 1])));
+  const t = u.slice();
+  for (let i = 1; i < iter; i++) {
+    u = hmacSha512(pw, u);
+    for (let j = 0; j < 64; j++) t[j] ^= u[j];
+  }
+  return t;
+}
+function ripemd160(bytes) {
+  const ZL = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,7,4,13,1,10,6,15,3,12,0,9,5,2,14,11,8,3,10,14,4,9,15,8,1,2,7,0,6,13,11,5,12,1,9,11,10,0,8,12,4,13,3,7,15,14,5,6,2,4,0,5,9,7,12,2,10,14,1,3,8,11,6,15,13];
+  const ZR = [5,14,7,0,9,2,11,4,13,6,15,8,1,10,3,12,6,11,3,7,0,13,5,10,14,15,8,12,4,9,1,2,15,5,1,3,7,14,6,9,11,8,12,2,10,0,4,13,8,6,4,1,3,11,15,0,5,12,2,13,9,7,10,14,12,15,10,4,1,5,8,7,6,2,13,14,0,3,9,11];
+  const SL = [11,14,15,12,5,8,7,9,11,13,14,15,6,7,9,8,7,6,8,13,11,9,7,15,7,12,15,9,11,7,13,12,11,13,6,7,14,9,13,15,14,8,13,6,5,12,7,5,11,12,14,15,14,15,9,8,9,14,5,6,8,6,5,12,9,15,5,11,6,8,13,12,5,12,13,14,11,8,5,6];
+  const SR = [8,9,9,11,13,15,15,5,7,7,8,11,14,14,12,6,9,13,15,7,12,8,9,11,7,7,12,7,6,15,13,11,9,7,15,11,8,6,6,14,12,13,5,14,13,13,7,5,15,5,8,11,14,14,6,14,6,9,12,9,12,5,15,8,8,5,12,9,12,5,14,6,8,13,6,5,15,13,11,11];
+  const KL = [0, 0x5a827999, 0x6ed9eba1, 0x8f1bbcdc, 0xa953fd4e], KR = [0x50a28be6, 0x5c4dd124, 0x6d703ef3, 0x7a6d76e9, 0];
+  const f = (j, x, y, z) => j < 16 ? x ^ y ^ z : j < 32 ? (x & y) | (~x & z) : j < 48 ? (x | ~y) ^ z : j < 64 ? (x & z) | (y & ~z) : x ^ (y | ~z);
+  const rotl = (x, s) => (x << s) | (x >>> (32 - s));
+  const l = bytes.length, n = ((l + 9 + 63) >> 6) << 6;
+  const m = new Uint8Array(n);
+  m.set(bytes);
+  m[l] = 0x80;
+  const dv = new DataView(m.buffer);
+  dv.setUint32(n - 8, (l << 3) >>> 0, true);
+  dv.setUint32(n - 4, Math.floor(l / 0x20000000), true);
+  let h0 = 0x67452301, h1 = 0xefcdab89, h2 = 0x98badcfe, h3 = 0x10325476, h4 = 0xc3d2e1f0;
+  for (let o = 0; o < n; o += 64) {
+    const X = [];
+    for (let i = 0; i < 16; i++) X.push(dv.getUint32(o + 4 * i, true));
+    let al = h0, bl = h1, cl = h2, dl = h3, el = h4, ar = h0, br = h1, cr = h2, dr = h3, er = h4;
+    for (let j = 0; j < 80; j++) {
+      let t = (al + f(j, bl, cl, dl) + X[ZL[j]] + KL[j >> 4]) | 0;
+      t = (rotl(t, SL[j]) + el) | 0;
+      al = el; el = dl; dl = rotl(cl, 10); cl = bl; bl = t;
+      t = (ar + f(79 - j, br, cr, dr) + X[ZR[j]] + KR[j >> 4]) | 0;
+      t = (rotl(t, SR[j]) + er) | 0;
+      ar = er; er = dr; dr = rotl(cr, 10); cr = br; br = t;
+    }
+    const t = (h1 + cl + dr) | 0;
+    h1 = (h2 + dl + er) | 0; h2 = (h3 + el + ar) | 0; h3 = (h4 + al + br) | 0; h4 = (h0 + bl + cr) | 0; h0 = t;
+  }
+  const out = new Uint8Array(20), odv = new DataView(out.buffer);
+  [h0, h1, h2, h3, h4].forEach((h, i) => odv.setUint32(4 * i, h >>> 0, true));
+  return out;
+}
+const SECP_P = 2n ** 256n - 2n ** 32n - 977n;
+const SECP_N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
+const SECP_G = [0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798n, 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8n];
+function modp(a) { const r = a % SECP_P; return r >= 0n ? r : r + SECP_P; }
+function invp(a) {
+  let [r0, r1, s0, s1] = [modp(a), SECP_P, 1n, 0n];
+  while (r1 !== 0n) { const q = r0 / r1; [r0, r1] = [r1, r0 - q * r1]; [s0, s1] = [s1, s0 - q * s1]; }
+  return modp(s0);
+}
+function ecAdd(P, Q) {
+  if (P === null) return Q;
+  if (Q === null) return P;
+  if (P[0] === Q[0]) {
+    if (modp(P[1] + Q[1]) === 0n) return null;
+    const l = modp(3n * P[0] * P[0] * invp(2n * P[1]));
+    const x = modp(l * l - 2n * P[0]);
+    return [x, modp(l * (P[0] - x) - P[1])];
+  }
+  const l = modp((Q[1] - P[1]) * invp(Q[0] - P[0]));
+  const x = modp(l * l - P[0] - Q[0]);
+  return [x, modp(l * (P[0] - x) - P[1])];
+}
+// Jacobian coordinates (x = X/Z^2, y = Y/Z^3): one modular inversion per multiplication instead of one per step
+function jDbl(P) {
+  if (P === null) return null;
+  const [X, Y, Z] = P;
+  if (Y === 0n) return null;
+  const YY = modp(Y * Y), S = modp(4n * X * YY), M = modp(3n * X * X);
+  const X3 = modp(M * M - 2n * S);
+  return [X3, modp(M * (S - X3) - 8n * YY * YY), modp(2n * Y * Z)];
+}
+function jAdd(P, Q) {
+  if (P === null) return Q;
+  if (Q === null) return P;
+  const [X1, Y1, Z1] = P, [X2, Y2, Z2] = Q;
+  const Z1Z1 = modp(Z1 * Z1), Z2Z2 = modp(Z2 * Z2);
+  const U1 = modp(X1 * Z2Z2), U2 = modp(X2 * Z1Z1);
+  const S1 = modp(Y1 * Z2 * Z2Z2), S2 = modp(Y2 * Z1 * Z1Z1);
+  if (U1 === U2) return S1 === S2 ? jDbl(P) : null;
+  const H = modp(U2 - U1), R = modp(S2 - S1), HH = modp(H * H), HHH = modp(H * HH), V = modp(U1 * HH);
+  const X3 = modp(R * R - HHH - 2n * V);
+  return [X3, modp(R * (V - X3) - S1 * HHH), modp(H * Z1 * Z2)];
+}
+function ecMul(k) {
+  let R = null, A = [SECP_G[0], SECP_G[1], 1n];
+  while (k > 0n) { if (k & 1n) R = jAdd(R, A); A = jDbl(A); k >>= 1n; }
+  if (R === null) return null;
+  const zi = invp(R[2]), zi2 = modp(zi * zi);
+  return [modp(R[0] * zi2), modp(R[1] * zi2 * zi)];
+}
+function bytesToBig(b) { return BigInt('0x' + (hex(b) || '0')); }
+function bigTo32(x) { return fromHex(x.toString(16).padStart(64, '0')); }
+function utf8nfkd(s) { return new TextEncoder().encode(s.normalize('NFKD')); }
+function mnemonicToSeed(words, passphrase) {
+  return pbkdf2Sha512(utf8nfkd(words.join(' ')), utf8nfkd('mnemonic' + passphrase), 2048);
+}
+function seedToFingerprint(seed) {
+  const I = hmacSha512(ascii('Bitcoin seed'), seed);
+  const k = bytesToBig(I.slice(0, 32));
+  if (k === 0n || k >= SECP_N) throw new Error(tx('ongeldige master key', 'invalid master key'));
+  const P = ecMul(k);
+  const pub = concatBytes(new Uint8Array([P[1] & 1n ? 3 : 2]), bigTo32(P[0]));
+  return { fp: hex(ripemd160(sha256(pub)).slice(0, 4)), pub };
+}
+function ser32(i) { return new Uint8Array([(i >>> 24) & 255, (i >>> 16) & 255, (i >>> 8) & 255, i & 255]); }
+function pubCompressed(k) {
+  const P = ecMul(k);
+  return concatBytes(new Uint8Array([P[1] & 1n ? 3 : 2]), bigTo32(P[0]));
+}
+function ckdPriv(node, index) {
+  const hard = index >= 0x80000000;
+  const data = hard ? concatBytes(new Uint8Array([0]), bigTo32(node.k), ser32(index)) : concatBytes(pubCompressed(node.k), ser32(index));
+  const I = hmacSha512(node.c, data);
+  const il = bytesToBig(I.slice(0, 32));
+  if (il >= SECP_N) throw new Error(tx('ongeldige afleiding', 'invalid derivation'));
+  const k = (il + node.k) % SECP_N;
+  if (k === 0n) throw new Error(tx('ongeldige afleiding', 'invalid derivation'));
+  return { k, c: I.slice(32) };
+}
+const BECH32 = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
+function bech32Polymod(values) {
+  const G = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
+  let chk = 1;
+  for (const v of values) {
+    const b = chk >>> 25;
+    chk = ((chk & 0x1ffffff) << 5) ^ v;
+    for (let i = 0; i < 5; i++) if ((b >>> i) & 1) chk ^= G[i];
+  }
+  return chk >>> 0;
+}
+function segwitV0Address(prog) {
+  const hrp = 'bc';
+  const data = [0];
+  let acc = 0, bits = 0;
+  for (const b of prog) { acc = (acc << 8) | b; bits += 8; while (bits >= 5) { bits -= 5; data.push((acc >>> bits) & 31); } }
+  if (bits) data.push((acc << (5 - bits)) & 31);
+  const hx = [...hrp].map(c => c.charCodeAt(0) >> 5).concat([0], [...hrp].map(c => c.charCodeAt(0) & 31));
+  const pm = bech32Polymod(hx.concat(data, [0, 0, 0, 0, 0, 0])) ^ 1;
+  const cs = [];
+  for (let i = 0; i < 6; i++) cs.push((pm >>> (5 * (5 - i))) & 31);
+  return hrp + '1' + data.concat(cs).map(v => BECH32[v]).join('');
+}
+function bech32CheckV0(addr) {
+  // returns true for a valid lowercase mainnet bech32 v0 address (bc1q..., 42 or 62 chars)
+  if (!/^bc1q[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{38}$|^bc1q[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{58}$/.test(addr)) return false;
+  const hrp = 'bc', data = [...addr.slice(3)].map(c => BECH32.indexOf(c));
+  const hx = [...hrp].map(c => c.charCodeAt(0) >> 5).concat([0], [...hrp].map(c => c.charCodeAt(0) & 31));
+  return bech32Polymod(hx.concat(data)) === 1;
+}
+function bip84AccountChains(seed) {
+  const I = hmacSha512(ascii('Bitcoin seed'), seed);
+  let node = { k: bytesToBig(I.slice(0, 32)), c: I.slice(32) };
+  for (const i of [0x80000054, 0x80000000, 0x80000000]) node = ckdPriv(node, i);   // m/84'/0'/0'
+  return [ckdPriv(node, 0), ckdPriv(node, 1)];                                      // external, internal
+}
+function chainAddress(chainNode, i) {
+  return segwitV0Address(ripemd160(sha256(pubCompressed(ckdPriv(chainNode, i).k))));
+}
+function bip84Addresses(seed, count) {
+  const I = hmacSha512(ascii('Bitcoin seed'), seed);
+  let node = { k: bytesToBig(I.slice(0, 32)), c: I.slice(32) };
+  for (const i of [0x80000054, 0x80000000, 0x80000000, 0]) node = ckdPriv(node, i);   // m/84'/0'/0'/0
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    const child = ckdPriv(node, i);
+    out.push({ path: "m/84'/0'/0'/0/" + i, addr: segwitV0Address(ripemd160(sha256(pubCompressed(child.k)))) });
+  }
+  return out;
+}
+/* ---------- Watch-only: account key m/84'/0'/0' (BIP32 serialisation, SLIP-132 zpub, BIP-380 descriptor) ---------- */
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function base58check(payload) {
+  const full = concatBytes(payload, sha256(sha256(payload)).slice(0, 4));
+  let n = bytesToBig(full), s = '';
+  while (n > 0n) { s = B58[Number(n % 58n)] + s; n /= 58n; }
+  for (const b of full) { if (b !== 0) break; s = '1' + s; }
+  return s;
+}
+function base58checkDecode(s) {
+  let n = 0n;
+  for (const ch of s) { const v = B58.indexOf(ch); if (v < 0) throw new Error(tx('base58: ongeldig teken', 'base58: invalid character')); n = n * 58n + BigInt(v); }
+  let h = n.toString(16); if (h.length % 2) h = '0' + h;
+  let lead = 0; for (const ch of s) { if (ch !== '1') break; lead++; }
+  const full = concatBytes(new Uint8Array(lead), n > 0n ? fromHex(h) : new Uint8Array(0));
+  const body = full.slice(0, full.length - 4);
+  if (hex(sha256(sha256(body)).slice(0, 4)) !== hex(full.slice(full.length - 4))) throw new Error(tx('base58: checksum klopt niet', 'base58: checksum mismatch'));
+  return body;
+}
+function descChecksum(s) {
+  const INPUT = "0123456789()[],'/*abcdefgh@:$%{}IJKLMNOPQRSTUVWXYZ&+-.;<=>?!^_|~ijklmnopqrstuvwxyzABCDEFGH`#\"\\ ";
+  const GEN = [0xf5dee51989n, 0xa9fdca3312n, 0x1bab10e32dn, 0x3706b1677an, 0x644d626ffdn];
+  let c = 1n, cls = 0, cc = 0;
+  const step = v => {
+    const top = c >> 35n;
+    c = ((c & 0x7ffffffffn) << 5n) ^ BigInt(v);
+    for (let i = 0; i < 5; i++) if ((top >> BigInt(i)) & 1n) c ^= GEN[i];
+  };
+  for (const ch of s) {
+    const v = INPUT.indexOf(ch);
+    if (v < 0) throw new Error(tx('descriptor: ongeldig teken', 'descriptor: invalid character'));
+    step(v & 31);
+    cls = cls * 3 + (v >> 5);
+    if (++cc === 3) { step(cls); cls = 0; cc = 0; }
+  }
+  if (cc > 0) step(cls);
+  for (let i = 0; i < 8; i++) step(0);
+  c ^= 1n;
+  let out = '';
+  for (let i = 0; i < 8; i++) out += BECH32[Number((c >> BigInt(5 * (7 - i))) & 31n)];
+  return s + '#' + out;
+}
+function bip84AccountKey(seed) {
+  const I = hmacSha512(ascii('Bitcoin seed'), seed);
+  const m = { k: bytesToBig(I.slice(0, 32)), c: I.slice(32) };
+  const mfp = hex(ripemd160(sha256(pubCompressed(m.k))).slice(0, 4));
+  const n1 = ckdPriv(m, 0x80000054), n2 = ckdPriv(n1, 0x80000000), acc = ckdPriv(n2, 0x80000000);   // m/84'/0'/0'
+  const parentFp = ripemd160(sha256(pubCompressed(n2.k))).slice(0, 4);
+  const pub = pubCompressed(acc.k);
+  // depth 3 | parent fingerprint | child number 0' | chain code | compressed public key
+  const body = concatBytes(new Uint8Array([3]), parentFp, ser32(0x80000000), acc.c, pub);
+  const xpub = base58check(concatBytes(ser32(0x0488b21e), body));
+  const zpub = base58check(concatBytes(ser32(0x04b24746), body));
+  // independent check: decode both again and compare the key material
+  for (const [s, ver] of [[xpub, '0488b21e'], [zpub, '04b24746']]) {
+    const d = base58checkDecode(s);
+    if (d.length !== 78 || hex(d.slice(0, 4)) !== ver || hex(d.slice(4)) !== hex(body)) throw new Error(tx('xpub: teruglezen klopt niet', 'xpub: read-back mismatch'));
+  }
+  const origin = mfp + "/84h/0h/0h";
+  return { mfp, xpub, zpub, origin, keyOrigin: '[' + origin + ']' + zpub, descriptor: descChecksum('wpkh([' + origin + ']' + xpub + '/<0;1>/*)') };
+}
+function masterFingerprint(words, passphrase) { return seedToFingerprint(mnemonicToSeed(words, passphrase || '')).fp; }
+
+/* ---------- BIP39 ---------- */
+function entropyToMnemonic(ent) {
+  if (ent.length !== 16 && ent.length !== 32) throw new Error(tx('entropie moet 16 of 32 bytes zijn', 'entropy must be 16 or 32 bytes'));
+  const cs = bits(sha256(ent)).slice(0, ent.length * 8 / 32);
+  const all = bits(ent) + cs;
+  const idx = [];
+  for (let i = 0; i < all.length; i += 11) idx.push(parseInt(all.slice(i, i + 11), 2));
+  return { words: idx.map(i => WORDS[i]), idx, cs };
+}
+function mnemonicToEntropy(words) {
+  const b = words.map(w => { const i = WORDS.indexOf(w); if (i < 0) throw new Error(tx('onbekend woord', 'unknown word')); return i.toString(2).padStart(11, '0'); }).join('');
+  const entBits = b.length * 32 / 33;
+  const ent = new Uint8Array(entBits / 8);
+  for (let i = 0; i < ent.length; i++) ent[i] = parseInt(b.slice(8 * i, 8 * i + 8), 2);
+  const cs = bits(sha256(ent)).slice(0, entBits / 32);
+  if (cs !== b.slice(entBits)) throw Object.assign(new Error(tx('checksum klopt niet', 'checksum mismatch')), { code: 'checksum' });
+  return ent;
+}
+// Final (checksum) word: first n-1 words + free bits (7 for 12 words, 3 for 24 words) -> last word
+function lastWordFor(words, freeBits) {
+  const n = words.length + 1;
+  const free = n === 12 ? 7 : 3;
+  if (!(n === 12 || n === 24)) throw new Error(tx('11 of 23 woorden nodig', '11 or 23 words needed'));
+  if (freeBits.length !== free || /[^01]/.test(freeBits)) throw new Error(free + tx(' bits (0/1) nodig', ' bits (0/1) needed'));
+  const b = words.map(w => { const i = WORDS.indexOf(w); if (i < 0) throw new Error(tx('onbekend woord', 'unknown word')); return i.toString(2).padStart(11, '0'); }).join('') + freeBits;
+  const ent = new Uint8Array(b.length / 8);
+  for (let i = 0; i < ent.length; i++) ent[i] = parseInt(b.slice(8 * i, 8 * i + 8), 2);
+  const m = entropyToMnemonic(ent);
+  if (m.words.slice(0, n - 1).join(' ') !== words.join(' ')) throw new Error(tx('interne controle mislukt', 'internal check failed'));
+  return m.words[n - 1];
+}
+// Parse user-entered words: full BIP39 words or unique prefixes of at least 4 letters
+function parseMnemonicInput(text) {
+  const toks = text.toLowerCase().normalize('NFKD').split(/[\s,;]+/).filter(Boolean).map(s => s.replace(/^\d+[.)]?/, '')).filter(Boolean);
+  const words = [], errors = [];
+  toks.forEach((tok, i) => {
+    if (WORDS.includes(tok)) { words.push(tok); return; }
+    const m = tok.length >= 4 ? WORDS.filter(w => w.startsWith(tok)) : [];
+    if (m.length === 1) words.push(m[0]);
+    else { errors.push(tx('woord ', 'word ') + (i + 1) + ' "' + tok + '" ' + (m.length > 1 ? tx('is niet eenduidig', 'is ambiguous') : tx('staat niet in de BIP39-woordenlijst', 'is not in the BIP39 wordlist'))); words.push(null); }
+  });
+  return { words, errors, count: toks.length };
+}
+function rollsToSeed(rolls, len) {
+  const digest = sha256(ascii(rolls));
+  const ent = digest.slice(0, LENGTHS[len].bits / 8);
+  const m = entropyToMnemonic(ent);
+  if (hex(mnemonicToEntropy(m.words)) !== hex(ent)) throw new Error(tx('roundtrip mislukt', 'roundtrip failed'));
+  return { digest, ent, ...m };
+}
+
+/* ---------- QR encoder: byte mode, ECC level L, versions 1-2 (Compact SeedQR) ---------- */
+const QR_SPEC = { 1: { data: 19, ecc: 7, align: [] }, 2: { data: 34, ecc: 10, align: [6, 18] }, 3: { data: 55, ecc: 15, align: [6, 22] } };
+const QR_ALNUM = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:';
+function gfMul(x, y) {
+  let z = 0;
+  for (let i = 7; i >= 0; i--) { z = (z << 1) ^ ((z >>> 7) * 0x11d); z ^= ((y >>> i) & 1) * x; }
+  return z & 0xff;
+}
+function rsDivisor(deg) {
+  const r = new Array(deg).fill(0);
+  r[deg - 1] = 1;
+  let root = 1;
+  for (let i = 0; i < deg; i++) {
+    for (let j = 0; j < deg; j++) { r[j] = gfMul(r[j], root); if (j + 1 < deg) r[j] ^= r[j + 1]; }
+    root = gfMul(root, 2);
+  }
+  return r;
+}
+function rsRemainder(data, div) {
+  const r = new Array(div.length).fill(0);
+  for (const b of data) {
+    const f = b ^ r.shift();
+    r.push(0);
+    for (let i = 0; i < div.length; i++) r[i] ^= gfMul(div[i], f);
+  }
+  return r;
+}
+const QR_MASKS = [
+  (x, y) => (x + y) % 2 === 0,
+  (x, y) => y % 2 === 0,
+  (x, y) => x % 3 === 0,
+  (x, y) => (x + y) % 3 === 0,
+  (x, y) => (Math.floor(x / 3) + Math.floor(y / 2)) % 2 === 0,
+  (x, y) => x * y % 2 + x * y % 3 === 0,
+  (x, y) => (x * y % 2 + x * y % 3) % 2 === 0,
+  (x, y) => ((x + y) % 2 + x * y % 3) % 2 === 0
+];
+function qrPenalty(m) {
+  const n = m.length;
+  let s = 0;
+  const lines = [];
+  for (let y = 0; y < n; y++) lines.push(m[y]);
+  for (let x = 0; x < n; x++) lines.push(m.map(r => r[x]));
+  const at = (line, i) => (i >= 0 && i < n) ? line[i] : false;
+  const core = [true, false, true, true, true, false, true];
+  for (const line of lines) {
+    let run = 1;
+    for (let i = 1; i <= n; i++) {
+      if (i < n && line[i] === line[i - 1]) run++;
+      else { if (run >= 5) s += 3 + run - 5; run = 1; }
+    }
+    for (let i = 0; i + 7 <= n; i++) {
+      if (!core.every((v, k) => line[i + k] === v)) continue;
+      if ([1, 2, 3, 4].every(k => !at(line, i - k))) s += 40;
+      if ([7, 8, 9, 10].every(k => !at(line, i + k))) s += 40;
+    }
+  }
+  for (let y = 0; y + 1 < n; y++) for (let x = 0; x + 1 < n; x++) {
+    const c = m[y][x];
+    if (c === m[y][x + 1] && c === m[y + 1][x] && c === m[y + 1][x + 1]) s += 3;
+  }
+  let dark = 0;
+  for (const r of m) for (const c of r) if (c) dark++;
+  const total = n * n;
+  s += (Math.ceil(Math.abs(dark * 20 - total * 10) / total) - 1) * 10;
+  return s;
+}
+function qrEncodeBytes(bytes, version, forcedMask, alnumText) {
+  const spec = QR_SPEC[version];
+  const bb = [];
+  const put = (val, len) => { for (let i = len - 1; i >= 0; i--) bb.push((val >>> i) & 1); };
+  if (alnumText !== undefined) {
+    put(2, 4);                           // alphanumeric mode
+    put(alnumText.length, 9);            // character count (versions 1-9)
+    const v = [...alnumText].map(ch => { const i = QR_ALNUM.indexOf(ch); if (i < 0) throw new Error(tx('QR: teken niet alfanumeriek', 'QR: character not alphanumeric')); return i; });
+    for (let i = 0; i + 1 < v.length; i += 2) put(v[i] * 45 + v[i + 1], 11);
+    if (v.length % 2) put(v[v.length - 1], 6);
+  } else {
+    put(4, 4);                 // byte mode
+    put(bytes.length, 8);      // character count (versions 1-9)
+    for (const b of bytes) put(b, 8);
+  }
+  const cap = spec.data * 8;
+  if (bb.length > cap) throw Object.assign(new Error(tx('QR: te veel data voor versie ', 'QR: too much data for version ') + version), { code: 'toomuch' });
+  put(0, Math.min(4, cap - bb.length));
+  put(0, (8 - bb.length % 8) % 8);
+  for (let p = 0xec; bb.length < cap; p ^= 0xec ^ 0x11) put(p, 8);
+  const data = [];
+  for (let i = 0; i < bb.length; i += 8) { let v = 0; for (let j = 0; j < 8; j++) v = (v << 1) | bb[i + j]; data.push(v); }
+  const cw = data.concat(rsRemainder(data, rsDivisor(spec.ecc)));
+  const size = 17 + 4 * version;
+  const mod = [], fn = [];
+  for (let y = 0; y < size; y++) { mod.push(new Array(size).fill(false)); fn.push(new Array(size).fill(false)); }
+  const setF = (x, y, d) => { mod[y][x] = d; fn[y][x] = true; };
+  for (let i = 0; i < size; i++) { setF(6, i, i % 2 === 0); setF(i, 6, i % 2 === 0); }
+  const finder = (cx, cy) => {
+    for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
+      const d = Math.max(Math.abs(dx), Math.abs(dy)), x = cx + dx, y = cy + dy;
+      if (x >= 0 && x < size && y >= 0 && y < size) setF(x, y, d !== 2 && d !== 4);
+    }
+  };
+  finder(3, 3); finder(size - 4, 3); finder(3, size - 4);
+  const al = spec.align, na = al.length;
+  for (let i = 0; i < na; i++) for (let j = 0; j < na; j++) {
+    if ((i === 0 && j === 0) || (i === 0 && j === na - 1) || (i === na - 1 && j === 0)) continue;
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) setF(al[i] + dx, al[j] + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
+  }
+  const drawFormat = mask => {
+    const d = (1 << 3) | mask;   // ECC level L = 01
+    let rem = d;
+    for (let i = 0; i < 10; i++) rem = (rem << 1) ^ ((rem >>> 9) * 0x537);
+    const bits = ((d << 10) | rem) ^ 0x5412;
+    const g = i => ((bits >>> i) & 1) === 1;
+    for (let i = 0; i <= 5; i++) setF(8, i, g(i));
+    setF(8, 7, g(6)); setF(8, 8, g(7)); setF(7, 8, g(8));
+    for (let i = 9; i < 15; i++) setF(14 - i, 8, g(i));
+    for (let i = 0; i < 8; i++) setF(size - 1 - i, 8, g(i));
+    for (let i = 8; i < 15; i++) setF(8, size - 15 + i, g(i));
+    setF(8, size - 8, true);   // dark module
+  };
+  drawFormat(0);
+  let k = 0;
+  for (let right = size - 1; right >= 1; right -= 2) {
+    if (right === 6) right = 5;
+    for (let v = 0; v < size; v++) for (let j = 0; j < 2; j++) {
+      const x = right - j, up = ((right + 1) & 2) === 0, y = up ? size - 1 - v : v;
+      if (!fn[y][x] && k < cw.length * 8) { mod[y][x] = ((cw[k >>> 3] >>> (7 - (k & 7))) & 1) === 1; k++; }
+    }
+  }
+  if (k !== cw.length * 8) throw new Error(tx('QR: plaatsing onvolledig', 'QR: placement incomplete'));
+  const applyMask = m => { for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (!fn[y][x] && QR_MASKS[m](x, y)) mod[y][x] = !mod[y][x]; };
+  let best = forcedMask, bestScore = Infinity;
+  if (best === undefined) {
+    for (let m = 0; m < 8; m++) {
+      applyMask(m); drawFormat(m);
+      const s = qrPenalty(mod);
+      if (s < bestScore) { best = m; bestScore = s; }
+      applyMask(m);
+    }
+  }
+  applyMask(best); drawFormat(best);
+  return { modules: mod, fn, size, mask: best, version, codewords: cw };
+}
+// Independent read-back: unmask, collect codewords, check ECC and payload
+function qrReadBack(q, expected) {
+  const { modules, fn, size, mask, version } = q;
+  const bitsOut = [];
+  for (let right = size - 1; right >= 1; right -= 2) {
+    if (right === 6) right = 5;
+    for (let v = 0; v < size; v++) for (let j = 0; j < 2; j++) {
+      const x = right - j, up = ((right + 1) & 2) === 0, y = up ? size - 1 - v : v;
+      if (!fn[y][x]) bitsOut.push(modules[y][x] !== QR_MASKS[mask](x, y) ? 1 : 0);
+    }
+  }
+  const spec = QR_SPEC[version], n = spec.data + spec.ecc;
+  const cw = [];
+  for (let i = 0; i < n; i++) { let v = 0; for (let j = 0; j < 8; j++) v = (v << 1) | bitsOut[8 * i + j]; cw.push(v); }
+  const data = cw.slice(0, spec.data);
+  if (rsRemainder(data, rsDivisor(spec.ecc)).join() !== cw.slice(spec.data).join()) throw new Error(tx('QR: foutcorrectie klopt niet', 'QR: error correction mismatch'));
+  if ((data[0] >>> 4) !== 4) throw new Error(tx('QR: geen bytemodus', 'QR: not byte mode'));
+  const len = ((data[0] & 15) << 4) | (data[1] >>> 4);
+  if (len !== expected.length) throw new Error(tx('QR: lengte klopt niet', 'QR: length mismatch'));
+  for (let i = 0; i < len; i++) {
+    const b = ((data[1 + i] & 15) << 4) | (data[2 + i] >>> 4);
+    if (b !== expected[i]) throw new Error(tx('QR: inhoud klopt niet', 'QR: content mismatch'));
+  }
+  return true;
+}
+// Address QR: uppercase bech32 in alphanumeric mode (BIP173), smallest version that fits, read back via ECC and codewords
+function addressQR(addr) {
+  const up = addr.toUpperCase();
+  for (const v of [2, 3]) {
+    try {
+      const q = qrEncodeBytes(null, v, undefined, up);
+      qrReadBackCodewords(q);
+      return q;
+    } catch (e) { if (e.code !== 'toomuch') throw e; }
+  }
+  throw new Error(tx('QR: adres te lang', 'QR: address too long'));
+}
+function qrReadBackCodewords(q) {
+  const { modules, fn, size, mask, version } = q;
+  const bitsOut = [];
+  for (let right = size - 1; right >= 1; right -= 2) {
+    if (right === 6) right = 5;
+    for (let v = 0; v < size; v++) for (let j = 0; j < 2; j++) {
+      const x = right - j, up = ((right + 1) & 2) === 0, y = up ? size - 1 - v : v;
+      if (!fn[y][x]) bitsOut.push(modules[y][x] !== QR_MASKS[mask](x, y) ? 1 : 0);
+    }
+  }
+  const spec = QR_SPEC[version], n = spec.data + spec.ecc;
+  for (let i = 0; i < n; i++) {
+    let v = 0;
+    for (let j = 0; j < 8; j++) v = (v << 1) | bitsOut[8 * i + j];
+    if (v !== q.codewords[i]) throw new Error(tx('QR: teruglezen klopt niet', 'QR: read-back mismatch'));
+  }
+  return true;
+}
+function compactSeedQR(ent) {
+  const q = qrEncodeBytes(ent, ent.length === 16 ? 1 : 2);
+  qrReadBack(q, ent);
+  return q;
+}
+/* ---------- QR encoder for longer text (watch-only key): byte mode, ECC level M, versions 1-10, multiple RS blocks ----------
+   Separate from the Compact SeedQR encoder above, which stays untouched. */
+// version: [ECC codewords per block, [[number of blocks, data codewords per block], ...]] (ISO/IEC 18004, level M)
+const QRM_SPEC = {
+  1: [10, [[1, 16]]], 2: [16, [[1, 28]]], 3: [26, [[1, 44]]], 4: [18, [[2, 32]]], 5: [24, [[2, 43]]],
+  6: [16, [[4, 27]]], 7: [18, [[4, 31]]], 8: [22, [[2, 38], [2, 39]]], 9: [22, [[3, 36], [2, 37]]], 10: [26, [[4, 43], [1, 44]]]
+};
+const QRM_ALIGN = { 1: [], 2: [6, 18], 3: [6, 22], 4: [6, 26], 5: [6, 30], 6: [6, 34], 7: [6, 22, 38], 8: [6, 24, 42], 9: [6, 26, 46], 10: [6, 28, 50] };
+function qrmLayout(v) {
+  const [ecc, groups] = QRM_SPEC[v], sizes = [];
+  for (const [n, d] of groups) for (let i = 0; i < n; i++) sizes.push(d);
+  return { ecc, sizes, data: sizes.reduce((a, b) => a + b, 0) };
+}
+function qrEncodeText(text, forcedVersion, forcedMask) {
+  const bytes = new TextEncoder().encode(text);
+  let version = forcedVersion;
+  if (!version) {
+    for (let v = 1; v <= 10 && !version; v++) if (4 + (v < 10 ? 8 : 16) + 8 * bytes.length <= qrmLayout(v).data * 8) version = v;
+    if (!version) throw new Error(tx('QR: tekst te lang', 'QR: text too long'));
+  }
+  const lay = qrmLayout(version), cap = lay.data * 8;
+  const bb = [];
+  const put = (val, len) => { for (let i = len - 1; i >= 0; i--) bb.push((val >>> i) & 1); };
+  put(4, 4);
+  put(bytes.length, version < 10 ? 8 : 16);
+  for (const b of bytes) put(b, 8);
+  if (bb.length > cap) throw Object.assign(new Error(tx('QR: te veel data voor versie ', 'QR: too much data for version ') + version), { code: 'toomuch' });
+  put(0, Math.min(4, cap - bb.length));
+  put(0, (8 - bb.length % 8) % 8);
+  for (let p = 0xec; bb.length < cap; p ^= 0xec ^ 0x11) put(p, 8);
+  const data = [];
+  for (let i = 0; i < bb.length; i += 8) { let v = 0; for (let j = 0; j < 8; j++) v = (v << 1) | bb[i + j]; data.push(v); }
+  const div = rsDivisor(lay.ecc), blocks = [];
+  let off = 0;
+  for (const s of lay.sizes) { const d = data.slice(off, off + s); off += s; blocks.push({ d, e: rsRemainder(d, div) }); }
+  const cw = [];
+  for (let i = 0; i < Math.max(...lay.sizes); i++) for (const b of blocks) if (i < b.d.length) cw.push(b.d[i]);
+  for (let i = 0; i < lay.ecc; i++) for (const b of blocks) cw.push(b.e[i]);
+  const size = 17 + 4 * version;
+  const mod = [], fn = [];
+  for (let y = 0; y < size; y++) { mod.push(new Array(size).fill(false)); fn.push(new Array(size).fill(false)); }
+  const setF = (x, y, d) => { mod[y][x] = d; fn[y][x] = true; };
+  for (let i = 0; i < size; i++) { setF(6, i, i % 2 === 0); setF(i, 6, i % 2 === 0); }
+  const finder = (cx, cy) => {
+    for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
+      const d = Math.max(Math.abs(dx), Math.abs(dy)), x = cx + dx, y = cy + dy;
+      if (x >= 0 && x < size && y >= 0 && y < size) setF(x, y, d !== 2 && d !== 4);
+    }
+  };
+  finder(3, 3); finder(size - 4, 3); finder(3, size - 4);
+  const al = QRM_ALIGN[version], na = al.length;
+  for (let i = 0; i < na; i++) for (let j = 0; j < na; j++) {
+    if ((i === 0 && j === 0) || (i === 0 && j === na - 1) || (i === na - 1 && j === 0)) continue;
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) setF(al[i] + dx, al[j] + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
+  }
+  if (version >= 7) {   // version information, BCH(18,6)
+    let rem = version;
+    for (let i = 0; i < 12; i++) rem = (rem << 1) ^ ((rem >>> 11) * 0x1f25);
+    const vb = (version << 12) | rem;
+    for (let i = 0; i < 18; i++) {
+      const bit = ((vb >>> i) & 1) === 1, a = size - 11 + i % 3, b = Math.floor(i / 3);
+      setF(a, b, bit); setF(b, a, bit);
+    }
+  }
+  const drawFormat = mask => {
+    const d = (0 << 3) | mask;   // ECC level M = 00
+    let rem = d;
+    for (let i = 0; i < 10; i++) rem = (rem << 1) ^ ((rem >>> 9) * 0x537);
+    const bits = ((d << 10) | rem) ^ 0x5412;
+    const g = i => ((bits >>> i) & 1) === 1;
+    for (let i = 0; i <= 5; i++) setF(8, i, g(i));
+    setF(8, 7, g(6)); setF(8, 8, g(7)); setF(7, 8, g(8));
+    for (let i = 9; i < 15; i++) setF(14 - i, 8, g(i));
+    for (let i = 0; i < 8; i++) setF(size - 1 - i, 8, g(i));
+    for (let i = 8; i < 15; i++) setF(8, size - 15 + i, g(i));
+    setF(8, size - 8, true);
+  };
+  drawFormat(0);
+  let k = 0;
+  for (let right = size - 1; right >= 1; right -= 2) {
+    if (right === 6) right = 5;
+    for (let v = 0; v < size; v++) for (let j = 0; j < 2; j++) {
+      const x = right - j, up = ((right + 1) & 2) === 0, y = up ? size - 1 - v : v;
+      if (!fn[y][x] && k < cw.length * 8) { mod[y][x] = ((cw[k >>> 3] >>> (7 - (k & 7))) & 1) === 1; k++; }
+    }
+  }
+  if (k !== cw.length * 8) throw new Error(tx('QR: plaatsing onvolledig', 'QR: placement incomplete'));
+  const applyMask = m => { for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (!fn[y][x] && QR_MASKS[m](x, y)) mod[y][x] = !mod[y][x]; };
+  let best = forcedMask, bestScore = Infinity;
+  if (best === undefined) {
+    for (let m = 0; m < 8; m++) {
+      applyMask(m); drawFormat(m);
+      const s = qrPenalty(mod);
+      if (s < bestScore) { best = m; bestScore = s; }
+      applyMask(m);
+    }
+  }
+  applyMask(best); drawFormat(best);
+  return { modules: mod, fn, size, mask: best, version, ecl: 'M', codewords: cw };
+}
+// Read-back: unmask, de-interleave, check every RS block, parse byte mode and compare with the text
+function qrReadBackText(q, text) {
+  const { modules, fn, size, mask, version } = q;
+  const lay = qrmLayout(version), total = lay.data + lay.ecc * lay.sizes.length;
+  const bitsOut = [];
+  for (let right = size - 1; right >= 1; right -= 2) {
+    if (right === 6) right = 5;
+    for (let v = 0; v < size; v++) for (let j = 0; j < 2; j++) {
+      const x = right - j, up = ((right + 1) & 2) === 0, y = up ? size - 1 - v : v;
+      if (!fn[y][x]) bitsOut.push(modules[y][x] !== QR_MASKS[mask](x, y) ? 1 : 0);
+    }
+  }
+  const cw = [];
+  for (let i = 0; i < total; i++) { let v = 0; for (let j = 0; j < 8; j++) v = (v << 1) | bitsOut[8 * i + j]; cw.push(v); }
+  const blocks = lay.sizes.map(() => ({ d: [], e: [] }));
+  let p = 0;
+  for (let i = 0; i < Math.max(...lay.sizes); i++) blocks.forEach((b, j) => { if (i < lay.sizes[j]) b.d.push(cw[p++]); });
+  for (let i = 0; i < lay.ecc; i++) blocks.forEach(b => b.e.push(cw[p++]));
+  const div = rsDivisor(lay.ecc);
+  for (const b of blocks) if (rsRemainder(b.d, div).join() !== b.e.join()) throw new Error(tx('QR: foutcorrectie klopt niet', 'QR: error correction mismatch'));
+  const data = [].concat(...blocks.map(b => b.d));
+  let pos = 0;
+  const get = n => { let v = 0; for (let i = 0; i < n; i++, pos++) v = (v << 1) | ((data[pos >>> 3] >>> (7 - (pos & 7))) & 1); return v; };
+  if (get(4) !== 4) throw new Error(tx('QR: geen bytemodus', 'QR: not byte mode'));
+  const len = get(version < 10 ? 8 : 16), want = new TextEncoder().encode(text);
+  if (len !== want.length) throw new Error(tx('QR: lengte klopt niet', 'QR: length mismatch'));
+  for (let i = 0; i < len; i++) if (get(8) !== want[i]) throw new Error(tx('QR: inhoud klopt niet', 'QR: content mismatch'));
+  return true;
+}
+function textQR(text) {
+  const q = qrEncodeText(text);
+  qrReadBackText(q, text);
+  return q;
+}
+function qrModuleString(q) { return q.modules.map(r => r.map(c => c ? '1' : '0').join('')).join(''); }
+// Block layout as in the SeedSigner grid templates: columns numbered 1.., rows lettered A..
+// 21 x 21 (12 words): 3 x 3 blocks of 7 x 7 modules; 25 x 25 (24 words): 5 x 5 blocks of 5 x 5 modules.
+function qrBlockSize(n) { return n === 21 ? 7 : 5; }
+function qrBlocks(n) { const z = qrBlockSize(n), b = []; for (let s = 0; s < n; s += z) b.push([s, Math.min(s + z, n)]); return b; }
+function qrModulesPath(q) {
+  let d = '';
+  for (let y = 0; y < q.size; y++) for (let x = 0; x < q.size; x++) if (q.modules[y][x]) d += 'M' + x + ' ' + y + 'h1v1h-1z';
+  return d;
+}
+function qrGridSvg(q, pad, focus) {
+  const n = q.size, h = 1.1, P = pad, x0 = -h - P, W = n + h + 2 * P;
+  const blocks = qrBlocks(n);
+  let s = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + x0 + ' ' + x0 + ' ' + W + ' ' + W + '" font-family="Helvetica, Arial, sans-serif" data-mask="' + q.mask + '" data-size="' + n + '">';
+  s += '<rect x="' + x0 + '" y="' + x0 + '" width="' + W + '" height="' + W + '" fill="#fff"/>';
+  // header cells (corner, column numbers, row letters)
+  s += '<g fill="none" stroke="#cfcfcf" stroke-width="0.04"><rect x="' + (-h) + '" y="' + (-h) + '" width="' + h + '" height="' + h + '"/>';
+  blocks.forEach(([a, b]) => {
+    s += '<rect x="' + a + '" y="' + (-h) + '" width="' + (b - a) + '" height="' + h + '"/>';
+    s += '<rect x="' + (-h) + '" y="' + a + '" width="' + h + '" height="' + (b - a) + '"/>';
+  });
+  if (focus) {
+    const [ca, cb] = blocks[focus.c], [ra, rb] = blocks[focus.r];
+    s += '<rect x="' + ca + '" y="' + (-h) + '" width="' + (cb - ca) + '" height="' + h + '" fill="#dbe7ff" stroke="none"/>';
+    s += '<rect x="' + (-h) + '" y="' + ra + '" width="' + h + '" height="' + (rb - ra) + '" fill="#dbe7ff" stroke="none"/>';
+  }
+  s += '</g><g font-size="0.62" fill="#8a8a8a" text-anchor="middle">';
+  blocks.forEach(([a, b], i) => {
+    const c = (a + b) / 2;
+    const fc = focus && focus.c === i ? ' fill="#1f5fd6" font-weight="bold"' : '';
+    const fr = focus && focus.r === i ? ' fill="#1f5fd6" font-weight="bold"' : '';
+    s += '<text x="' + c + '" y="' + (-h / 2 + 0.22) + '"' + fc + '>' + (i + 1) + '</text>';
+    s += '<text x="' + (-h / 2) + '" y="' + (c + 0.22) + '"' + fr + '>' + String.fromCharCode(65 + i) + '</text>';
+  });
+  s += '</g>';
+  // dotted module lines
+  s += '<g stroke="#bdbdbd" stroke-width="0.03" stroke-dasharray="0.06 0.06">';
+  for (let i = 1; i < n; i++) {
+    if (i % qrBlockSize(n) === 0) continue;
+    s += '<line x1="' + i + '" y1="0" x2="' + i + '" y2="' + n + '"/><line x1="0" y1="' + i + '" x2="' + n + '" y2="' + i + '"/>';
+  }
+  s += '</g>';
+  // solid block lines and outer border
+  s += '<g stroke="#8a8a8a" stroke-width="0.06">';
+  const cuts = blocks.map(b => b[0]).concat([n]);
+  cuts.forEach(i => { s += '<line x1="' + i + '" y1="0" x2="' + i + '" y2="' + n + '"/><line x1="0" y1="' + i + '" x2="' + n + '" y2="' + i + '"/>'; });
+  s += '</g>';
+  // clean white under finder and alignment patterns (as on the printed template)
+  const regs = [[0, 0, 7], [n - 7, 0, 7], [0, n - 7, 7]].concat(QR_SPEC[q.version].align.length ? [[16, 16, 5]] : []);
+  regs.forEach(([x, y, z]) => { s += '<rect x="' + x + '" y="' + y + '" width="' + z + '" height="' + z + '" fill="#fff"/>'; });
+  // dark modules on top
+  s += '<path d="' + qrModulesPath(q) + '" fill="#000" shape-rendering="crispEdges"/>';
+  if (focus) {
+    // grey out every block except the focused one, then outline the focused block
+    s += '<g fill="#fff" fill-opacity="0.82">';
+    blocks.forEach(([ra, rb], r) => blocks.forEach(([ca, cb], c) => {
+      if (r !== focus.r || c !== focus.c) s += '<rect x="' + ca + '" y="' + ra + '" width="' + (cb - ca) + '" height="' + (rb - ra) + '"/>';
+    }));
+    s += '</g>';
+    const [ca, cb] = blocks[focus.c], [ra, rb] = blocks[focus.r];
+    // red module grid inside the focused block, drawn over white and black cells
+    s += '<g stroke="#e0161b" stroke-width="0.045">';
+    for (let x = ca + 1; x < cb; x++) s += '<line x1="' + x + '" y1="' + ra + '" x2="' + x + '" y2="' + rb + '"/>';
+    for (let y = ra + 1; y < rb; y++) s += '<line x1="' + ca + '" y1="' + y + '" x2="' + cb + '" y2="' + y + '"/>';
+    s += '</g>';
+    s += '<rect x="' + ca + '" y="' + ra + '" width="' + (cb - ca) + '" height="' + (rb - ra) + '" fill="none" stroke="#1f5fd6" stroke-width="0.16"/>';
+  }
+  s += '</svg>';
+  return s;
+}
+function qrSvg(q, grid) {
+  if (grid) return qrGridSvg(q, 2.9);
+  const qz = 4, n = q.size, W = n + 2 * qz;
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + (-qz) + ' ' + (-qz) + ' ' + W + ' ' + W + '" shape-rendering="crispEdges" data-mask="' + q.mask + '" data-size="' + n + '">' +
+    '<rect x="' + (-qz) + '" y="' + (-qz) + '" width="' + W + '" height="' + W + '" fill="#fff"/><path d="' + qrModulesPath(q) + '" fill="#000"/></svg>';
+}
+
+/* ---------- Self-test ---------- */
+function selfTest() {
+  const errs = [];
+  const eq = (name, got, want) => { if (got !== want) errs.push(name); };
+  eq('sha256("")', hex(sha256(ascii(''))), 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
+  eq('sha256("abc")', hex(sha256(ascii('abc'))), 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+  eq('sha256(448 bit)', hex(sha256(ascii('abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq'))), '248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1');
+  eq('sha256(896 bit)', hex(sha256(ascii('abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu'))), 'cf5b16a778af8380036ce59e7b0492370b249b11e8f07a51afac45037afee9d1');
+  eq('woordenlijst lengte', WORDS.length, 2048);
+  eq('woordenlijst hash', hex(sha256(ascii(WORDS.join('\n') + '\n'))), WORDLIST_SHA256);
+  const V = [
+    ['00000000000000000000000000000000', 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'],
+    ['7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f', 'legal winner thank year wave sausage worth useful legal winner thank yellow'],
+    ['80808080808080808080808080808080', 'letter advice cage absurd amount doctor acoustic avoid letter advice cage above'],
+    ['ffffffffffffffffffffffffffffffff', 'zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong'],
+    ['0000000000000000000000000000000000000000000000000000000000000000', 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art'],
+    ['ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', 'zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo vote']
+  ];
+  V.forEach(([e, w], i) => eq('BIP39 vector ' + (i + 1), entropyToMnemonic(fromHex(e)).words.join(' '), w));
+  // End-to-end dice vector, independently computed (Python 'mnemonic' library)
+  const R = '3615243362511456361524336251145636152433625114563615243362511456361524336251145636152433625114563615';
+  eq('dobbelsteen 12', rollsToSeed(R, 12).words.join(' '), 'knock mercy iron pulse minute aim little pear weird forget cinnamon cube');
+  eq('dobbelsteen 24', rollsToSeed(R, 24).words.join(' '), 'knock mercy iron pulse minute aim little pear weird forget cinnamon curious confirm sense club zero satoshi jewel paddle museum wolf thought seat exhibit');
+  // SHA-512, RIPEMD-160 and master fingerprint vectors (fingerprints checked with python-mnemonic + embit)
+  eq('sha512("abc")', hex(sha512(ascii('abc'))), 'ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f');
+  eq('ripemd160("abc")', hex(ripemd160(ascii('abc'))), '8eb208f7e05d987a9b044a8e98c6b087f15a0bfc');
+  const AA = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'.split(' ');
+  eq('BIP39 seed TREZOR', hex(mnemonicToSeed(AA, 'TREZOR')), 'c55257c360c07c72029aebc1b53c05ed0362ada38ead3e3e9efa3708e53495531f09a6987599d18264c1e1c92f2cf141630c7a3c4ab7c81b2f001698e7463b04');
+  eq('fingerprint abandon', masterFingerprint(AA, ''), '73c5da0a');
+  eq('fingerprint dobbelsteen 24', masterFingerprint(rollsToSeed(R, 24).words, ''), 'e90811b5');
+  const a84 = bip84Addresses(mnemonicToSeed(AA, ''), 2);
+  eq('BIP84 adres 0', a84[0].addr, 'bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu');
+  eq('BIP84 adres 1', a84[1].addr, 'bc1qnjg0jd8228aq7egyzacy8cys3knf9xvrerkf9g');
+  const acc = bip84AccountKey(mnemonicToSeed(AA, ''));
+  eq('BIP84 zpub', acc.zpub, 'zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs');
+  eq('BIP84 xpub', acc.xpub, 'xpub6CatWdiZiodmUeTDp8LT5or8nmbKNcuyvz7WyksVFkKB4RHwCD3XyuvPEbvqAQY3rAPshWcMLoP2fMFMKHPJ4ZeZXYVUhLv1VMrjPC7PW6V');
+  eq('descriptor checksum BIP-380', descChecksum('addr(mkmZxiEcEd8ZqjQWVZuC6so5dFMKEFpN2j)'), 'addr(mkmZxiEcEd8ZqjQWVZuC6so5dFMKEFpN2j)#02wpgw69');
+  eq('descriptor abandon', acc.descriptor, 'wpkh([73c5da0a/84h/0h/0h]xpub6CatWdiZiodmUeTDp8LT5or8nmbKNcuyvz7WyksVFkKB4RHwCD3XyuvPEbvqAQY3rAPshWcMLoP2fMFMKHPJ4ZeZXYVUhLv1VMrjPC7PW6V/<0;1>/*)#qf45pmyh');
+  // descriptor QR: version 9-M matrix identical to python 'qrcode' (all 8 masks for v1-v10 compared), decoded with zxing-cpp
+  eq('xpub-QR matrix', hex(sha256(ascii(qrModuleString(textQR(acc.descriptor))))), 'f4e55004c8910558f2707e8f31afa9da060a21f7a8b4961576082ed6170f04d3');
+  eq('laatste woord 12', lastWordFor(Array(11).fill('abandon'), '0000000'), 'about');
+  eq('laatste woord 24', lastWordFor(Array(23).fill('abandon'), '000'), 'art');
+  // Compact SeedQR vectors (matrix identical to python 'qrcode' library for all 8 masks, decoded with zxing-cpp)
+  const q12 = compactSeedQR(rollsToSeed(R, 12).ent), q24 = compactSeedQR(rollsToSeed(R, 24).ent);
+  eq('SeedQR 12 grootte', q12.size, 21);
+  eq('SeedQR 24 grootte', q24.size, 25);
+  eq('SeedQR 12 matrix', hex(sha256(ascii(qrModuleString(q12)))), '890cc79f05da16f82885d32c5510b31857b358a282108cbecff701b444864e00');
+  eq('SeedQR 24 matrix', hex(sha256(ascii(qrModuleString(q24)))), '55bfdfe5547c0c4dbca95c4274b1a3e17164ecac504500e6b12f2a408507919d');
+  return errs;
+}
+
+/* ---------- Quality analysis ---------- */
+function analyse(r) {
+  const n = r.length;
+  const counts = [0, 0, 0, 0, 0, 0];
+  for (const ch of r) counts[ch.charCodeAt(0) - 49]++;
+  const flags = [];
+  // longest run of identical rolls
+  let run = n ? 1 : 0, longest = run;
+  for (let i = 1; i < n; i++) { run = r[i] === r[i - 1] ? run + 1 : 1; if (run > longest) longest = run; }
+  if (longest >= 8) flags.push(['strong', longest + tx(' keer achter elkaar dezelfde worp. Bij echte worpen vrijwel uitgesloten.', ' times in a row the same roll. With real rolls practically impossible.')]);
+  else if (longest >= 6) flags.push(['warn', longest + tx(' keer achter elkaar dezelfde worp. Kan toeval zijn, maar controleer je invoer.', ' times in a row the same roll. Can be chance, but check your input.')]);
+  let chi2 = null;
+  if (n >= 30) {
+    const e = n / 6;
+    chi2 = counts.reduce((s, c) => s + (c - e) * (c - e) / e, 0);
+    // chi-square, 5 degrees of freedom: p=0.01 -> 15.086, p=0.001 -> 20.515
+    if (chi2 > 20.515) flags.push(['strong', tx('Verdeling over de zes kanten wijkt extreem af (chi² = ' + chi2.toFixed(1) + ', p < 0,001). Mogelijk een scheve dobbelsteen of een invoerfout.', 'Distribution over the six faces deviates extremely (chi² = ' + chi2.toFixed(1) + ', p < 0.001). Possibly a biased die or an input error.')]);
+    else if (chi2 > 15.086) flags.push(['warn', tx('Verdeling wijkt opvallend af (chi² = ' + chi2.toFixed(1) + ', p < 0,01). Houdt 1 op de 100 keer bij een eerlijke dobbelsteen.', 'Distribution deviates noticeably (chi² = ' + chi2.toFixed(1) + ', p < 0.01). Happens 1 in 100 times with a fair die.')]);
+    // repeating pattern: fraction of positions equal to the one p places earlier (random: ~1/6)
+    let worst = null;
+    for (let p = 1; p <= 24; p++) {
+      if (n - p < 30) break;
+      let same = 0;
+      for (let i = p; i < n; i++) if (r[i] === r[i - p]) same++;
+      const frac = same / (n - p);
+      if (!worst || frac > worst.frac) worst = { p, frac };
+    }
+    if (worst && worst.frac >= 0.4) flags.push(['strong', tx('Herhalend patroon gevonden (periode ', 'Repeating pattern found (period ') + worst.p + ', ' + Math.round(worst.frac * 100) + tx('% overeenkomst, verwacht ~17%). Dit lijkt op getypte of gekopieerde invoer, niet op worpen.', '% match, expected ~17%). This looks like typed or copied input, not like rolls.')]);
+    else if (worst && worst.frac >= 0.3) flags.push(['warn', tx('Mogelijk patroon (periode ', 'Possible pattern (period ') + worst.p + ', ' + Math.round(worst.frac * 100) + tx('% overeenkomst, verwacht ~17%).', '% match, expected ~17%).')]);
+  }
+  // per face: deviation from n/6 in standard deviations (binomial, p = 1/6)
+  const sd = Math.sqrt(n * (1 / 6) * (5 / 6));
+  const z = counts.map(c => n ? (c - n / 6) / sd : 0);
+  if (n >= 30) z.forEach((v, i) => {
+    if (Math.abs(v) >= 3) flags.push(['warn', tx('Kant ' + (i + 1) + ' valt opvallend ' + (v > 0 ? 'vaak' : 'weinig') + ': ' + counts[i] + ' keer, verwacht ' + (n / 6).toFixed(1).replace('.', ',') + ' (' + (v > 0 ? '+' : '') + v.toFixed(1).replace('.', ',') + ' standaarddeviaties). Bij een eerlijke dobbelsteen gebeurt dat bij een van de zes kanten ongeveer 1 à 2 op de 100 keer.',
+      'Face ' + (i + 1) + ' comes up noticeably ' + (v > 0 ? 'often' : 'rarely') + ': ' + counts[i] + ' times, expected ' + (n / 6).toFixed(1) + ' (' + (v > 0 ? '+' : '') + v.toFixed(1) + ' standard deviations). With a fair die this happens for one of the six faces about 1 to 2 times in 100.')]);
+  });
+  return { n, counts, chi2, longest, flags, z };
+}
+
+/* ---------- UI ---------- */
+const $ = id => document.getElementById(id);
+function i18nCollect(root) {
+  const out = [];
+  const norm = s => s.replace(/\s+/g, ' ').trim();
+  const bad = el => el.querySelector('[id], input, select, textarea, script, style, svg');
+  const attrs = el => { for (const a of ['title', 'placeholder', 'aria-label']) if (el.hasAttribute(a) && /[a-zA-Z]{3}/.test(el.getAttribute(a))) out.push({ kind: 'attr', node: el, attr: a, key: norm(el.getAttribute(a)), orig: el.getAttribute(a) }); };
+  const walk = el => {
+    if (/^(SCRIPT|STYLE|svg)$/i.test(el.tagName)) return;
+    attrs(el);
+    const txt = norm(el.textContent || '');
+    if (el !== root && /[a-zA-Z]{2}/.test(txt) && !bad(el) && !/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) {
+      out.push({ kind: 'el', node: el, key: txt, orig: el.innerHTML });
+      el.querySelectorAll('[title],[placeholder],[aria-label]').forEach(attrs);
+      return;
+    }
+    for (const c of Array.from(el.childNodes)) {
+      if (c.nodeType === 3) { if (/[a-zA-Z]{2}/.test(c.nodeValue)) out.push({ kind: 'txt', node: c, key: norm(c.nodeValue), orig: c.nodeValue }); }
+      else if (c.nodeType === 1) walk(c);
+    }
+  };
+  walk(root);
+  return out;
+}
+const I18N_NODES = i18nCollect(document.body);   // collected before anything is rendered: the static Dutch text
+function applyStaticLang() {
+  for (const it of I18N_NODES) {
+    const en = I18N_EN[(it.kind === 'attr' ? '@' : '') + it.key];
+    if (en === undefined) continue;
+    if (it.kind === 'attr') { it.node.setAttribute(it.attr, LANG === 'en' ? en : it.orig); continue; }
+    if (it.kind === 'txt') { it.node.nodeValue = LANG === 'en' ? it.orig.match(/^\s*/)[0] + en + it.orig.match(/\s*$/)[0] : it.orig; continue; }
+    // element: only swap while it still shows static text; dynamic content is re-rendered by relabel()
+    const cur = it.node.innerHTML;
+    if (cur !== it.orig && cur !== it.enHtml) continue;
+    it.node.innerHTML = LANG === 'en' ? en : it.orig;
+    if (LANG === 'en') it.enHtml = it.node.innerHTML;
+  }
+}
+function setLang(l, initial) {
+  LANG = l;
+  document.documentElement.lang = l;
+  document.title = tx('Dobbelsteen-seed (BIP39)', 'Dice seed (BIP39)');
+  for (const [id, v] of [['langNl', 'nl'], ['langEn', 'en']]) { $(id).classList.toggle('on', l === v); $(id).setAttribute('aria-pressed', String(l === v)); }
+  applyStaticLang();
+  if (!initial) relabel();
+}
+function relabel() {
+  renderBadges();
+  netStatus();
+  update();
+  closeModal(); closeAddr(); closeXpub();
+  $('btnSeedInToggle').textContent = $('seedInArea').classList.contains('hidden') ? tx('Bestaande seed invoeren', 'Enter existing seed') : tx('Invoer verbergen', 'Hide input');
+  seedInputs().forEach((inp, i) => inp.setAttribute('aria-label', tx('woord ', 'word ') + (i + 1)));
+  seedBoxesChanged();
+  $('seedSuggest').innerHTML = '';
+  if ($('lastWordListBox').open) renderLastWordList();
+  $('ppShow').textContent = $('pp').type === 'password' ? tx('Toon', 'Show') : tx('Verberg', 'Hide');
+  const warn = nonAsciiNote($('pp').value);
+  $('ppWarn').textContent = warn;
+  $('btnToggle').textContent = $('secret').classList.contains('blur') ? tx('Tonen', 'Show') : tx('Verbergen', 'Hide');
+  if (!autoHideDeadline) $('autoHideInfo').textContent = '';
+  if (lastShown) {
+    $('qrMeta').textContent = qrMetaText(lastShown.res);
+    if (lastShown.meta.source === 'input') $('dRolls').textContent = $('dHash').textContent = tx('n.v.t. (ingevoerde seed)', 'n/a (entered seed)');
+    if (lastFp) $('fpNote').textContent = fpNoteText();
+    addrCheckReset();
+  }
+}
+const ta = $('rolls');
+let selfTestOk = false;
+let lastRolls = null;
+let lastQr = null;
+let testMode = false;
+let lastWords = null;
+let fpJob = 0;
+let lastFp = null;
+let lastAddrs = null;
+let lastXpub = null;
+let lastSeed = null;
+let lastShown = null;
+let addrJob = 0;
+let addrIdx = null;
+
+const SEEDSIGNER_ROLLS = { 12: 50, 24: 99 };
+function verifyMode() { return $('chkVerify').checked; }
+function effLen(len) {
+  const L = Object.assign({}, LENGTHS[len]);
+  if (verifyMode()) L.min = SEEDSIGNER_ROLLS[len];
+  return L;
+}
+function currentLen() { return +document.querySelector('input[name=len]:checked').value; }
+function parseInput() {
+  const raw = ta.value;
+  const bad = raw.search(/[^1-6\s]/);
+  return { rolls: raw.replace(/\s+/g, ''), bad, badChar: bad >= 0 ? raw[bad] : null };
+}
+function nonAsciiNote(pp) {
+  if (!pp) return '';
+  if (/^[\x20-\x7e]*$/.test(pp)) return '';
+  return tx('Let op: je passphrase bevat tekens buiten gewone ASCII. Deze tool normaliseert volgens BIP39 (NFKD), maar niet elke wallet doet dat (SeedSigner/embit bijvoorbeeld niet). Dan krijg je daar een andere wallet. Gebruik bij voorkeur alleen gewone letters, cijfers en leestekens.',
+    'Note: your passphrase contains characters outside plain ASCII. This tool normalises according to BIP39 (NFKD), but not every wallet does (SeedSigner/embit, for example, do not). You would then get a different wallet there. Preferably use only plain letters, digits and punctuation.');
+}
+async function updateFingerprint() {
+  const job = ++fpJob;
+  if (!lastWords) return;
+  const pp = $('pp').value;
+  const warn = nonAsciiNote(pp);
+  $('ppWarn').textContent = warn;
+  $('ppWarn').classList.toggle('hidden', !warn);
+  $('fpVal').textContent = '........';
+  $('fpNote').textContent = tx('berekenen...', 'calculating...');
+  lastAddrs = null;
+  closeAddr();
+  $('addrList').textContent = tx('berekenen...', 'calculating...');
+  lastXpub = null;
+  closeXpub();
+  renderXpub(tx('berekenen...', 'calculating...'));
+  lastSeed = null;
+  addrCheckReset();
+  await new Promise(r => setTimeout(r, 30));
+  if (job !== fpJob || !lastWords) return;
+  try {
+    const seed = mnemonicToSeed(lastWords, pp);
+    if (window.crypto && crypto.subtle && crypto.subtle.deriveBits) {
+      const key = await crypto.subtle.importKey('raw', utf8nfkd(lastWords.join(' ')), 'PBKDF2', false, ['deriveBits']);
+      const ref = new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-512', salt: utf8nfkd('mnemonic' + pp), iterations: 2048 }, key, 512));
+      if (hex(ref) !== hex(seed)) throw new Error(tx('PBKDF2 van WebCrypto en eigen implementatie verschillen', 'PBKDF2 from WebCrypto and own implementation differ'));
+    }
+    const fp = seedToFingerprint(seed).fp;
+    if (job !== fpJob) return;
+    lastAddrs = bip84Addresses(seed, 10);
+    lastXpub = bip84AccountKey(seed);
+    if (lastXpub.mfp !== fp) throw new Error(tx('fingerprint van de account-sleutel wijkt af', 'fingerprint of the account key differs'));
+    lastSeed = seed;
+    addrCheckReset();
+    renderAddrs();
+    renderXpub();
+    $('fpVal').textContent = fp;
+    $('fpNote').textContent = fpNoteText();
+    lastFp = fp;
+  } catch (e) {
+    $('fpVal').textContent = tx('fout', 'error');
+    lastXpub = null;
+    renderXpub(tx('fout', 'error'));
+    $('fpNote').textContent = e.message;
+    lastFp = null;
+  }
+}
+function ppLabel() { return $('pp').value ? tx('met passphrase', 'with passphrase') : tx('zonder passphrase', 'without passphrase'); }
+function fpNoteText() { return ppLabel() + (testMode ? ', TESTSEED' : '') + tx('. Vergelijk met de fingerprint op je signing device of in je wallet.', '. Compare with the fingerprint on your signing device or in your wallet.'); }
+function renderAddrs() {
+  const box = $('addrList');
+  box.innerHTML = '';
+  if (!lastAddrs) return;
+  lastAddrs.forEach((a, i) => {
+    const b = document.createElement('button');
+    b.className = 'addrrow';
+    const p = document.createElement('i'); p.textContent = '.../0/' + i;
+    const s = document.createElement('span'); s.textContent = a.addr;
+    b.appendChild(p); b.appendChild(s);
+    b.addEventListener('click', () => openAddr(i));
+    box.appendChild(b);
+  });
+}
+function openAddr(i) {
+  if (!lastAddrs) return;
+  addrIdx = Math.max(0, Math.min(lastAddrs.length - 1, i));
+  const a = lastAddrs[addrIdx];
+  let q;
+  try { q = addressQR(a.addr); } catch (e) { alertBox(tx('Adres-QR afgebroken: ', 'Address QR aborted: ') + e.message); return; }
+  $('addrModalQr').innerHTML = qrSvg(q, false);
+  $('addrModalText').textContent = a.addr.match(/.{1,4}/g).join(' ');
+  $('addrModalPath').textContent = a.path + ' (' + ppLabel() + ', fingerprint ' + (lastFp || '?') + ')' + (testMode ? ' TESTSEED' : '');
+  $('btnAddrPrev').disabled = addrIdx === 0;
+  $('btnAddrNext').disabled = addrIdx === lastAddrs.length - 1;
+  $('addrModal').classList.remove('hidden');
+}
+function xpubPayload() { return lastXpub ? lastXpub[$('xpubFmt').value] : ''; }
+function renderXpub(msg) {
+  const ids = ['xpFp', 'xpPath', 'xpZpub', 'xpXpub', 'xpDesc'];
+  if (!lastXpub) {
+    $('xpubQr').innerHTML = '';
+    ids.forEach(id => { $(id).textContent = msg || ''; });
+    return;
+  }
+  const x = lastXpub;
+  $('xpFp').textContent = x.mfp;
+  $('xpPath').textContent = "m/84'/0'/0'  (" + x.origin + ')';
+  $('xpZpub').textContent = x.zpub;
+  $('xpXpub').textContent = x.xpub;
+  $('xpDesc').textContent = x.descriptor;
+  let q;
+  try { q = textQR(xpubPayload()); } catch (e) { $('xpubQr').textContent = tx('QR afgebroken: ', 'QR aborted: ') + e.message; return; }
+  $('xpubQr').innerHTML = qrSvg(q, false);
+}
+function openXpub() {
+  if (!lastXpub || $('secret').classList.contains('blur')) return;
+  const txt = xpubPayload();
+  let q;
+  try { q = textQR(txt); } catch (e) { alertBox(tx('QR afgebroken: ', 'QR aborted: ') + e.message); return; }
+  $('xpubModalQr').innerHTML = qrSvg(q, false);
+  $('xpubModalText').textContent = txt;
+  const f = $('xpubFmt');
+  $('xpubModalMeta').textContent = f.options[f.selectedIndex].text.split(':')[0] + ", m/84'/0'/0', fingerprint " + lastXpub.mfp + ' (' + ppLabel() + '), QR ' + q.size + ' x ' + q.size + (testMode ? ' TESTSEED' : '');
+  $('xpubModal').classList.remove('hidden');
+}
+function closeXpub() {
+  $('xpubModal').classList.add('hidden');
+  $('xpubModalQr').innerHTML = '';
+  $('xpubModalText').textContent = '';
+}
+function closeAddr() {
+  addrIdx = null;
+  $('addrModal').classList.add('hidden');
+  $('addrModalQr').innerHTML = '';
+  $('addrModalText').textContent = '';
+}
+function addrCheckReset() {
+  addrJob++;
+  $('addrCheckOut').classList.add('hidden');
+  $('addrCheckOut').textContent = '';
+  $('btnAddrCheck').disabled = false;
+}
+async function addrCheck() {
+  const out = $('addrCheckOut');
+  const show = (cls, txt) => { out.className = 'status ' + cls; out.textContent = txt; out.classList.remove('hidden'); };
+  const a = $('addrCheckIn').value.trim().toLowerCase();
+  if (!lastSeed) { show('bad', tx('Nog geen fingerprint berekend; wacht even.', 'No fingerprint calculated yet; please wait.')); return; }
+  if (/^(1|3|bc1p)/.test(a)) { show('bad', tx('Dit is geen BIP-84-adres (bc1q...). Deze controle zoekt alleen native SegWit-adressen van pad m/84\'/0\'/0\'.', 'This is not a BIP-84 address (bc1q...). This check only searches native SegWit addresses of path m/84\'/0\'/0\'.')); return; }
+  if (!bech32CheckV0(a)) { show('bad', tx('Geen geldig bc1q-adres (verkeerde lengte, teken of checksum). Controleer op tikfouten.', 'Not a valid bc1q address (wrong length, character or checksum). Check for typos.')); return; }
+  if (a.length !== 42) { show('bad', tx('Dit is een script-adres (bc1q, 62 tekens), geen enkelvoudig BIP-84-adres.', 'This is a script address (bc1q, 62 characters), not a single-key BIP-84 address.')); return; }
+  const job = ++addrJob, seed = lastSeed, n = +$('addrCheckRange').value;
+  const pp = ppLabel();
+  $('btnAddrCheck').disabled = true;
+  const [ext, int] = bip84AccountChains(seed);
+  for (let i = 0; i < n; i++) {
+    for (const [chain, node, label] of [[0, ext, tx('ontvangstadres', 'receive address')], [1, int, tx('wisseladres', 'change address')]]) {
+      if (chainAddress(node, i) === a) {
+        show('good', tx('Gevonden: ', 'Found: ') + label + ' ' + i + tx(', pad m/84\'/0\'/0\'/', ', path m/84\'/0\'/0\'/') + chain + '/' + i + ' (' + pp + ', fingerprint ' + (lastFp || '?') + ').');
+        $('btnAddrCheck').disabled = false;
+        return;
+      }
+    }
+    if (i % 10 === 9) {
+      show('mid', tx('Zoeken... ', 'Searching... ') + (i + 1) + tx(' van ', ' of ') + n + tx(' per keten', ' per chain'));
+      await new Promise(r => setTimeout(r, 0));
+      if (job !== addrJob) return;
+    }
+  }
+  show('bad', tx('Niet gevonden in de eerste ' + n + ' ontvang- en ' + n + ' wisseladressen (', 'Not found in the first ' + n + ' receive and ' + n + ' change addresses (') + pp + ', fingerprint ' + (lastFp || '?') + tx('). Controleer de passphrase, het adrestype en het account.', '). Check the passphrase, the address type and the account.'));
+  $('btnAddrCheck').disabled = false;
+}
+// ---- automatic hiding of words and QR after inactivity
+let autoHideDeadline = 0, autoHideTimer = null;
+function autoHideArm() {
+  const s = +$('autoHide').value;
+  if (!s || !lastWords || $('secret').classList.contains('blur')) { autoHideDeadline = 0; $('autoHideInfo').textContent = ''; return; }
+  autoHideDeadline = Date.now() + s * 1000;
+}
+function autoHideTick() {
+  if (!autoHideDeadline) return;
+  const left = Math.ceil((autoHideDeadline - Date.now()) / 1000);
+  if (left <= 0) {
+    autoHideDeadline = 0;
+    $('secret').classList.add('blur');
+    closeModal();
+    closeXpub();
+    $('btnToggle').textContent = tx('Tonen', 'Show');
+    $('autoHideInfo').textContent = tx('Automatisch verborgen.', 'Hidden automatically.');
+    return;
+  }
+  $('autoHideInfo').textContent = tx('verbergt over ', 'hides in ') + Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+}
+let stepIdx = null;   // null = full grid, otherwise index of the highlighted block (row-major: A1, A2, ...)
+function renderModal() {
+  if (!lastQr) return;
+  const nb = qrBlocks(lastQr.size).length, total = nb * nb;
+  let focus = null;
+  if (stepIdx !== null) {
+    focus = { r: Math.floor(stepIdx / nb), c: stepIdx % nb };
+    const [ra, rb] = qrBlocks(lastQr.size)[focus.r], [ca, cb] = qrBlocks(lastQr.size)[focus.c];
+    let dark = 0;
+    for (let y = ra; y < rb; y++) for (let x = ca; x < cb; x++) if (lastQr.modules[y][x]) dark++;
+    $('stepInfo').textContent = tx('Blok ', 'Block ') + String.fromCharCode(65 + focus.r) + (focus.c + 1) + '  (' + (stepIdx + 1) + tx(' van ', ' of ') + total + ')  ' + (cb - ca) + ' x ' + (rb - ra) + tx(' vakjes, ', ' cells, ') + dark + tx(' zwart', ' black');
+  } else {
+    $('stepInfo').textContent = '';
+  }
+  $('btnStep').textContent = stepIdx === null ? tx('Blok voor blok', 'Block by block') : tx('Heel raster', 'Whole grid');
+  $('btnStep').classList.toggle('on', stepIdx !== null);
+  $('btnPrev').disabled = stepIdx === null || stepIdx === 0;
+  $('btnNext').disabled = stepIdx === null || stepIdx === total - 1;
+  $('qrModalBody').innerHTML = qrGridSvg(lastQr, 0.4, focus);
+}
+function stepMove(d) {
+  if (stepIdx === null || !lastQr) return;
+  const total = qrBlocks(lastQr.size).length ** 2;
+  stepIdx = Math.min(total - 1, Math.max(0, stepIdx + d));
+  renderModal();
+}
+function closeModal() {
+  $('qrModal').classList.add('hidden');
+  $('qrModalBody').innerHTML = '';
+  $('qrModalMeta').textContent = '';
+}
+function openModal() {
+  if (!lastQr || $('secret').classList.contains('blur')) return;
+  renderModal();
+  $('qrModalMeta').textContent = 'Compact SeedQR ' + lastQr.size + ' x ' + lastQr.size + tx(', blokken van ', ', blocks of ') + qrBlockSize(lastQr.size) + ' x ' + qrBlockSize(lastQr.size) + tx(' (kolommen 1 tot ', ' (columns 1 to ') + qrBlocks(lastQr.size).length + tx(', rijen A tot ', ', rows A to ') + String.fromCharCode(64 + qrBlocks(lastQr.size).length) + ').' + (lastFp ? ' Fingerprint ' + lastFp + ($('pp').value ? tx(' (met passphrase).', ' (with passphrase).') : '.') : '') + (testMode ? ' TESTSEED.' : '');
+  $('qrModal').classList.remove('hidden');
+}
+function clearResult() {
+  closeModal();
+  $('result').classList.add('hidden');
+  $('words').innerHTML = '';
+  $('qrbox').innerHTML = '';
+  $('qrMeta').textContent = '';
+  lastQr = null;
+  lastWords = null;
+  lastFp = null;
+  lastAddrs = null;
+  lastXpub = null;
+  closeXpub();
+  renderXpub();
+  lastSeed = null;
+  addrCheckReset();
+  $('addrCheckIn').value = '';
+  autoHideDeadline = 0;
+  $('autoHideInfo').textContent = '';
+  $('inputBannerOut').classList.add('hidden');
+  closeAddr();
+  $('addrList').innerHTML = '';
+  stepIdx = null;
+  fpJob++;
+  $('fpVal').textContent = '';
+  $('fpNote').textContent = '';
+  $('pp').value = '';
+  $('pp').type = 'password';
+  $('ppShow').textContent = tx('Toon', 'Show');
+  $('ppWarn').classList.add('hidden');
+  ['dRolls', 'dHash', 'dEnt', 'dCs', 'dIdx', 'dEntBits'].forEach(id => { $(id).textContent = ''; });
+  lastRolls = null;
+  lastShown = null;
+}
+
+function update() {
+  const len = currentLen();
+  const L = effLen(len);
+  const { rolls, bad, badChar } = parseInput();
+  const n = rolls.length;
+  if (n === 0) testMode = false;
+  $('testBannerIn').classList.toggle('hidden', !testMode);
+  $('lengthInfo').textContent = verifyMode()
+    ? tx(len + ' woorden, CONTROLEMODUS: minimaal ' + L.min + ' worpen (SeedSigner), gewone ondergrens van deze tool is ' + LENGTHS[len].min + '.', len + ' words, VERIFICATION MODE: at least ' + L.min + ' rolls (SeedSigner), this tool\'s normal lower limit is ' + LENGTHS[len].min + '.')
+    : tx(len + ' woorden: minimaal ' + L.min + ' worpen (harde grens), aanbevolen ' + L.rec + ' of meer.', len + ' words: at least ' + L.min + ' rolls (hard limit), recommended ' + L.rec + ' or more.');
+  $('verifyBannerIn').classList.toggle('hidden', !verifyMode());
+
+  // invalid characters
+  ta.classList.toggle('invalid', bad >= 0);
+  $('invalidMsg').classList.toggle('hidden', bad < 0);
+  if (bad >= 0) $('invalidMsg').textContent = tx('Ongeldig teken "' + badChar + '" op positie ' + (bad + 1) + '. Alleen 1 tot en met 6 en spaties zijn toegestaan.', 'Invalid character "' + badChar + '" at position ' + (bad + 1) + '. Only 1 to 6 and spaces are allowed.');
+
+  // meter
+  const scaleMax = Math.max(L.rec * 1.25, n);
+  const fill = $('meterFill');
+  fill.style.width = Math.min(100, n / scaleMax * 100) + '%';
+  fill.className = 'fill' + (n >= L.rec ? ' good' : n >= L.min ? ' mid' : '');
+  $('markMin').style.left = (L.min / scaleMax * 100) + '%';
+  $('markRec').style.left = (L.rec / scaleMax * 100) + '%';
+  $('legendMin').textContent = 'minimum ' + L.min;
+  $('legendMin').style.left = (L.min / scaleMax * 100) + '%';
+  $('legendRec').style.left = (L.rec / scaleMax * 100) + '%';
+  $('legendRec').textContent = tx('aanbevolen ', 'recommended ') + L.rec;
+
+  $('stCount').textContent = n;
+  $('stBits').textContent = (n * LOG2_6).toFixed(0);
+  $('stCons').textContent = (n * LOG2_5).toFixed(0);
+  $('stNeed').textContent = L.bits;
+
+  const st = $('levelStatus');
+  if (n < L.min) { st.className = 'status bad'; st.textContent = verifyMode() ? tx('Controlemodus: nog ' + (L.min - n) + ' worpen nodig (SeedSigner gebruikt er precies ' + L.min + ').', 'Verification mode: ' + (L.min - n) + ' more rolls needed (SeedSigner uses exactly ' + L.min + ').') : tx('Onvoldoende: nog ' + (L.min - n) + ' worpen nodig voor het veilige minimum.', 'Insufficient: ' + (L.min - n) + ' more rolls needed for the safe minimum.'); }
+  else if (verifyMode() && n < LENGTHS[len].min) { st.className = 'status mid'; st.textContent = tx('Controlemodus: genoeg om na te rekenen, maar onder de gewone ondergrens van deze tool (' + LENGTHS[len].min + ').', 'Verification mode: enough to recompute, but below this tool\'s normal lower limit (' + LENGTHS[len].min + ').'); }
+  else if (n < L.rec) { st.className = 'status mid'; st.textContent = tx('Veilig minimum gehaald. Nog ' + (L.rec - n) + ' worpen tot de aanbevolen marge.', 'Safe minimum reached. ' + (L.rec - n) + ' more rolls to the recommended margin.'); }
+  else { st.className = 'status good'; st.textContent = tx('Ruime marge. Meer worpen mag altijd, ze tellen allemaal mee.', 'Ample margin. More rolls are always fine, they all count.'); }
+
+  // quality
+  const a = analyse(rolls);
+  const maxC = Math.max(1, ...a.counts);
+  $('faces').innerHTML = a.counts.map(c => '<div class="face" title="' + c + '" style="height:' + (c / maxC * 100) + '%"></div>').join('');
+  const fl = $('flags');
+  fl.innerHTML = '';
+  const li = (cls, txt) => { const e = document.createElement('li'); e.className = cls; e.textContent = txt; fl.appendChild(e); };
+  li('', tx('Aantallen per kant: ', 'Counts per face: ') + a.counts.map((c, i) => (i + 1) + ': ' + c).join(', ') + (a.chi2 !== null ? ' (chi² = ' + a.chi2.toFixed(1) + ')' : ''));
+  if (n < 30) li('', tx('Statistische controle start vanaf 30 worpen.', 'Statistical check starts at 30 rolls.'));
+  else if (!a.flags.length) li('ok', tx('Geen afwijkingen gevonden (verdeling, herhaling, patroon).', 'No anomalies found (distribution, repetition, pattern).'));
+  a.flags.forEach(([lvl, txt]) => li(lvl, txt));
+  renderFaceTable(a);
+  const strong = a.flags.some(f => f[0] === 'strong');
+  $('confirmWrap').classList.toggle('hidden', !strong);
+  if (!strong) $('confirmStrong').checked = false;
+
+  // generate button
+  let why = '';
+  if (!selfTestOk) why = tx('Zelftest mislukt, berekenen geblokkeerd.', 'Self-test failed, calculation blocked.');
+  else if (bad >= 0) why = tx('Verwijder eerst het ongeldige teken.', 'Remove the invalid character first.');
+  else if (n < L.min) why = tx('Minimaal ' + L.min + ' worpen nodig.', 'At least ' + L.min + ' rolls needed.');
+  else if (strong && !$('confirmStrong').checked) why = tx('Bevestig eerst de kwaliteitswaarschuwing.', 'Confirm the quality warning first.');
+  $('btnGenerate').disabled = !!why;
+  $('genHint').textContent = why;
+
+  // any change after generating invalidates the shown result
+  if (lastRolls !== null && (lastRolls.rolls !== rolls || lastRolls.len !== len || (lastRolls.source === 'dice' && lastRolls.verify !== verifyMode()))) clearResult();
+}
+
+function renderFaceTable(a) {
+  const n = a.n, tb = $('faceRows');
+  tb.innerHTML = '';
+  a.counts.forEach((c, i) => {
+    const tr = document.createElement('tr');
+    const z = a.z[i];
+    if (n >= 30 && Math.abs(z) >= 3) tr.className = 'zwarn';
+    else if (n >= 30 && Math.abs(z) >= 2) tr.className = 'zmid';
+    [String(i + 1), String(c), n ? (n / 6).toFixed(1) : '-', n ? (100 * c / n).toFixed(1) + '%' : '-', n ? (z > 0 ? '+' : '') + z.toFixed(1) + ' σ' : '-']
+      .forEach(v => { const td = document.createElement('td'); td.textContent = LANG === 'nl' ? v.replace('.', ',') : v; tr.appendChild(td); });
+    tb.appendChild(tr);
+  });
+  // smallest per-face deviation reliably visible at 3 sigma, in percentage points
+  if (n < 30) { $('facePower').textContent = tx('Vanaf 30 worpen.', 'From 30 rolls.'); return; }
+  const pp = 300 * Math.sqrt((1 / 6) * (5 / 6) / n);
+  const need = r => Math.ceil(9 * (1 / 6) * (5 / 6) / (r * r));   // rolls for a 3-sigma signal of r (fraction)
+  const nl = x => x.replace('.', ',');
+  if (LANG === 'en') { $('facePower').textContent = 'Detectability with ' + n + ' rolls: only a deviation of about ' + pp.toFixed(1) + ' percentage points per face is reliably visible (a face that comes up ' + (16.67 + pp).toFixed(1) + '% or ' + Math.max(0, 16.67 - pp).toFixed(1) + '% instead of 16.7%). For 1 percentage point (order of magnitude for toy dice) about ' + need(0.01) + ' rolls are needed, for 3 percentage points (20% on one face) about ' + need(0.0333) + '.'; return; }
+  $('facePower').textContent = 'Meetbaarheid bij ' + n + ' worpen: pas een afwijking van ongeveer ' + nl(pp.toFixed(1)) + ' procentpunt per kant is betrouwbaar zichtbaar (een kant die ' + nl((16.67 + pp).toFixed(1)) + '% of ' + nl(Math.max(0, 16.67 - pp).toFixed(1)) + '% valt in plaats van 16,7%). Voor 1 procentpunt (orde van grootte bij speelgoed) zijn ongeveer ' + need(0.01) + ' worpen nodig, voor 3 procentpunt (20% op één kant) ongeveer ' + need(0.0333) + '.';
+}
+
+async function generate() {
+  const len = currentLen();
+  const { rolls, bad } = parseInput();
+  if (!selfTestOk || bad >= 0 || rolls.length < effLen(len).min) return;
+  let res;
+  try {
+    res = rollsToSeed(rolls, len);
+    res.qr = compactSeedQR(res.ent);
+    if (window.crypto && crypto.subtle && crypto.subtle.digest) {
+      const d2 = new Uint8Array(await crypto.subtle.digest('SHA-256', ascii(rolls)));
+      if (hex(d2) !== hex(res.digest)) throw new Error(tx('SHA-256 van WebCrypto en eigen implementatie verschillen', 'SHA-256 from WebCrypto and own implementation differ'));
+    }
+  } catch (e) {
+    alertBox(tx('Berekening afgebroken: ', 'Calculation aborted: ') + e.message);
+    return;
+  }
+  showResult(res, { rolls, len, source: 'dice' });
+}
+
+function qrMetaText(res) {
+  return tx('QR versie ' + res.qr.version + ' (' + res.qr.size + ' x ' + res.qr.size + ' modules), foutcorrectie L, ' + res.ent.length + ' bytes entropie, masker ' + res.qr.mask + '.',
+    'QR version ' + res.qr.version + ' (' + res.qr.size + ' x ' + res.qr.size + ' modules), error correction L, ' + res.ent.length + ' bytes entropy, mask ' + res.qr.mask + '.');
+}
+function showResult(res, meta) {
+  const len = meta.len;
+  $('words').innerHTML = '';
+  res.words.forEach((w, i) => {
+    const d = document.createElement('div');
+    d.className = 'word';
+    const num = document.createElement('i');
+    num.textContent = (i + 1) + '.';
+    d.appendChild(num);
+    d.appendChild(document.createTextNode(w));
+    $('words').appendChild(d);
+  });
+  lastQr = res.qr;
+  $('qrbox').innerHTML = qrSvg(res.qr, $('qrGrid').checked);
+  $('qrMeta').textContent = qrMetaText(res);
+  $('secret').classList.remove('blur');
+  $('btnToggle').textContent = tx('Verbergen', 'Hide');
+  setTimeout(autoHideArm, 0);
+  $('dRolls').textContent = meta.source === 'input' ? tx('n.v.t. (ingevoerde seed)', 'n/a (entered seed)') : meta.rolls;
+  $('dHash').textContent = meta.source === 'input' ? tx('n.v.t. (ingevoerde seed)', 'n/a (entered seed)') : hex(res.digest);
+  $('dEntBits').textContent = LENGTHS[len].bits;
+  $('dEnt').textContent = hex(res.ent);
+  $('dCs').textContent = res.cs;
+  $('dIdx').textContent = res.idx.join(' ');
+  $('testBannerOut').classList.toggle('hidden', !(testMode && meta.source === 'dice'));
+  $('verifyBannerOut').classList.toggle('hidden', !(verifyMode() && meta.source === 'dice'));
+  $('inputBannerOut').classList.toggle('hidden', meta.source !== 'input');
+  lastWords = res.words;
+  lastShown = { res, meta };
+  updateFingerprint();
+  $('result').classList.remove('hidden');
+  lastRolls = { rolls: parseInput().rolls, len, verify: verifyMode(), source: meta.source };
+}
+
+function seedInLen() { return +document.querySelector('input[name=seedInLen]:checked').value; }
+function seedInputs() { return Array.from(document.querySelectorAll('#seedBoxes input')); }
+function buildSeedBoxes(keep) {
+  const old = keep ? seedInputs().map(i => i.value) : [];
+  const n = seedInLen(), box = $('seedBoxes');
+  box.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const w = document.createElement('div');
+    w.className = 'seedbox';
+    const num = document.createElement('i');
+    num.textContent = (i + 1) + '.';
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    ['autocomplete', 'autocorrect', 'autocapitalize'].forEach(a => inp.setAttribute(a, 'off'));
+    inp.spellcheck = false;
+    inp.setAttribute('data-gramm', 'false');
+    inp.setAttribute('aria-label', tx('woord ', 'word ') + (i + 1));
+    inp.dataset.i = i;
+    inp.value = old[i] || '';
+    inp.addEventListener('input', onSeedBoxInput);
+    inp.addEventListener('keydown', onSeedBoxKey);
+    inp.addEventListener('focus', () => showSuggest(inp));
+    inp.addEventListener('paste', onSeedBoxPaste);
+    inp.addEventListener('mousedown', () => { seedTail = ''; });
+    w.appendChild(num); w.appendChild(inp);
+    box.appendChild(w);
+  }
+  seedInputs().forEach(markSeedBox);
+  seedBoxesChanged();
+}
+function seedMatches(v) { return v ? WORDS.filter(w => w.startsWith(v)) : []; }
+function markSeedBox(inp) {
+  const v = inp.value.trim().toLowerCase(), m = seedMatches(v);
+  inp.parentNode.classList.toggle('ok', WORDS.includes(v));
+  inp.parentNode.classList.toggle('bad', v !== '' && m.length === 0);
+}
+function focusSeedBox(i) { const ins = seedInputs(); if (i < ins.length) { ins[i].focus(); ins[i].select(); } else $('btnLoadSeed').focus(); }
+let seedTail = '';   // rest of an auto-completed word: if the user keeps typing it, those letters are swallowed
+function acceptWord(inp, word, typed) {
+  seedTail = typed ? word.slice(typed.length) : '';
+  inp.value = word;
+  markSeedBox(inp);
+  seedBoxesChanged();
+  focusSeedBox(+inp.dataset.i + 1);
+}
+function showSuggest(inp) {
+  const box = $('seedSuggest');
+  box.innerHTML = '';
+  const v = inp.value.trim().toLowerCase();
+  const m = seedMatches(v);
+  if (!v || (WORDS.includes(v) && m.length === 1)) return;
+  if (!m.length) { box.textContent = tx('Woord ', 'Word ') + (+inp.dataset.i + 1) + ': "' + v + tx('" staat niet in de BIP39-woordenlijst.', '" is not in the BIP39 wordlist.'); return; }
+  const lbl = document.createElement('span');
+  lbl.textContent = tx('Woord ', 'Word ') + (+inp.dataset.i + 1) + ':';
+  box.appendChild(lbl);
+  m.slice(0, 8).forEach(w => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = w;
+    b.addEventListener('mousedown', e => { e.preventDefault(); acceptWord(inp, w); });
+    box.appendChild(b);
+  });
+  if (m.length > 8) { const more = document.createElement('span'); more.textContent = '+' + (m.length - 8) + tx(' meer', ' more'); box.appendChild(more); }
+}
+function onSeedBoxInput(e) {
+  const inp = e.target;
+  const v = inp.value.replace(/[^a-zA-Z]/g, '').toLowerCase();
+  if (v !== inp.value) inp.value = v;
+  const m = seedMatches(v);
+  markSeedBox(inp);
+  seedBoxesChanged();
+  // after an auto-complete, letters that continue the previous word are held back (no auto-complete) until it is clear
+  // whether they are the rest of that word (followed by space/Enter/Tab) or the start of a new word (they diverge)
+  if (seedTail) {
+    if (v && seedTail.startsWith(v)) {
+      showSuggest(inp);
+      if (v === seedTail) {
+        const note = document.createElement('span');
+        note.textContent = tx('(of het einde van het vorige woord: druk spatie om het te negeren)', '(or the end of the previous word: press space to ignore it)');
+        $('seedSuggest').appendChild(note);
+      }
+      return;
+    }
+    seedTail = '';
+    // the held letters were a complete prefix of their own word and the user already started the next word:
+    // accept the held word and carry the extra letter over to the next box
+    const held = v.slice(0, -1), hm = seedMatches(held);
+    if (m.length === 0 && hm.length === 1 && (held.length >= 4 || WORDS.includes(held))) {
+      acceptWord(inp, hm[0]);
+      const next = seedInputs()[+inp.dataset.i + 1];
+      if (next) { next.value = v.slice(-1); next.dispatchEvent(new Event('input')); }
+      return;
+    }
+  }
+  // auto-complete once 4 letters are typed (BIP39 guarantees 4 letters identify a word), or earlier for a
+  // complete 3-letter word that no other word starts with; never earlier, so a typed 4th letter cannot spill into the next box
+  if (m.length === 1 && v.length >= Math.min(4, m[0].length) && e.inputType !== 'deleteContentBackward') { acceptWord(inp, m[0], v); return; }
+  showSuggest(inp);
+}
+function onSeedBoxKey(e) {
+  const inp = e.target, v = inp.value.trim().toLowerCase();
+  // typed letters equal the rest of the previous (auto-completed) word and are followed by a separator:
+  // treat them as the end of that word (full-word typing). Rare exception, shown to the user as a hint:
+  // a 3-letter word that is exactly that rest ("attr" + "act") must then be picked from the suggestions.
+  if (seedTail && v === seedTail && (e.key === ' ' || e.key === 'Enter' || e.key === 'Tab')) {
+    // the letters typed here were the rest of the previous (auto-completed) word: drop them, stay in this box
+    e.preventDefault();
+    inp.value = '';
+    seedTail = '';
+    markSeedBox(inp);
+    seedBoxesChanged();
+    showSuggest(inp);
+    if (WORDS.includes(v)) {
+      // "attr" + "act" + space looks exactly like "attract" + space: offer the other reading
+      const box = $('seedSuggest'), note = document.createElement('span'), b = document.createElement('button');
+      note.textContent = tx('"' + v + '" is gelezen als einde van "' + seedInputs()[+inp.dataset.i - 1].value + '". Bedoelde je het woord "' + v + '"?', '"' + v + '" was read as the end of "' + seedInputs()[+inp.dataset.i - 1].value + '". Did you mean the word "' + v + '"?');
+      b.type = 'button';
+      b.textContent = tx(v + ' invullen', 'Fill in ' + v);
+      b.addEventListener('mousedown', ev => { ev.preventDefault(); acceptWord(inp, v); });
+      box.innerHTML = '';
+      box.appendChild(note); box.appendChild(b);
+    }
+    return;
+  }
+  if (e.key === ' ' || e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
+    const m = seedMatches(v);
+    if (WORDS.includes(v)) { e.preventDefault(); acceptWord(inp, v); }
+    else if (m.length && (e.key === 'Enter' || e.key === 'Tab')) { e.preventDefault(); acceptWord(inp, m[0]); }
+    else if (e.key === ' ') e.preventDefault();
+  } else if (e.key === 'Backspace' && inp.value === '' && +inp.dataset.i > 0) {
+    e.preventDefault();
+    focusSeedBox(+inp.dataset.i - 1);
+  }
+}
+function onSeedBoxPaste(e) {
+  const txt = (e.clipboardData || window.clipboardData).getData('text');
+  const toks = txt.toLowerCase().split(/[\s,;]+/).map(s => s.replace(/^\d+[.)]?/, '')).filter(Boolean);
+  if (toks.length < 2) return;
+  e.preventDefault();
+  const start = +e.target.dataset.i;
+  if (start + toks.length > 12 && seedInLen() === 12) { document.querySelector('input[name=seedInLen][value="24"]').checked = true; buildSeedBoxes(true); }
+  const ins = seedInputs();
+  toks.forEach((tk, k) => {
+    const inp = ins[start + k];
+    if (!inp) return;
+    const m = seedMatches(tk);
+    inp.value = WORDS.includes(tk) ? tk : (m.length === 1 ? m[0] : tk);
+    markSeedBox(inp);
+  });
+  seedBoxesChanged();
+  $('seedSuggest').innerHTML = '';
+}
+function firstWordsValid() {
+  const ins = seedInputs();
+  return ins.slice(0, ins.length - 1).every(i => WORDS.includes(i.value.trim().toLowerCase()));
+}
+function updateLastWordUi() {
+  const n = seedInLen(), free = n === 12 ? 7 : 3, ok = firstWordsValid();
+  $('btnLastWord').textContent = tx('Bereken ' + n + 'e woord', 'Calculate ' + n + 'th word');
+  $('btnLastWord').disabled = !ok;
+  $('lastWordHint').textContent = ok ? '' : tx('Vul eerst de eerste ' + (n - 1) + ' woorden in.', 'First fill in the first ' + (n - 1) + ' words.');
+  if (!ok) { $('lastWordArea').classList.add('hidden'); return; }
+  $('lastWordIntro').textContent = tx('Het ' + n + 'e woord bevat ' + free + ' vrije bits en ' + (n === 12 ? 4 : 8) + ' checksumbits. Gooi ' + free + ' keer een munt (kop = 1, munt = 0) en typ de uitkomsten in volgorde in. Er zijn ' + (1 << free) + ' geldige laatste woorden.',
+    'The ' + n + 'th word contains ' + free + ' free bits and ' + (n === 12 ? 4 : 8) + ' checksum bits. Flip a coin ' + free + ' times (heads = 1, tails = 0) and type the results in order. There are ' + (1 << free) + ' valid last words.');
+  $('coinBits').maxLength = free;
+  $('coinBits').placeholder = tx('bijv. ', 'e.g. ') + (free === 7 ? '1011001' : '101');
+  $('lastWordListSum').textContent = tx('Alle ' + (1 << free) + ' geldige laatste woorden', 'All ' + (1 << free) + ' valid last words');
+  coinBitsChanged();
+  if ($('lastWordListBox').open) renderLastWordList();
+}
+function coinBitsChanged() {
+  const n = seedInLen(), free = n === 12 ? 7 : 3;
+  const v = $('coinBits').value.replace(/[^01]/g, '').slice(0, free);
+  if (v !== $('coinBits').value) $('coinBits').value = v;
+  $('btnLastFromCoins').disabled = v.length !== free || !firstWordsValid();
+  $('coinHint').textContent = v.length + tx(' van ', ' of ') + free + ' bits';
+}
+function firstWords() { return seedInputs().slice(0, seedInLen() - 1).map(i => i.value.trim().toLowerCase()); }
+function fillLastWord(w) {
+  const ins = seedInputs(), last = ins[ins.length - 1];
+  last.value = w;
+  markSeedBox(last);
+  seedBoxesChanged();
+  $('seedSuggest').innerHTML = '';
+  $('btnLoadSeed').focus();
+}
+function renderLastWordList() {
+  const box = $('lastWordList');
+  box.innerHTML = '';
+  if (!firstWordsValid()) return;
+  const free = seedInLen() === 12 ? 7 : 3, fw = firstWords();
+  for (let i = 0; i < (1 << free); i++) {
+    const w = lastWordFor(fw, i.toString(2).padStart(free, '0'));
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = w;
+    b.title = tx('vrije bits ', 'free bits ') + i.toString(2).padStart(free, '0');
+    b.addEventListener('click', () => fillLastWord(w));
+    box.appendChild(b);
+  }
+}
+function seedBoxesChanged() {
+  const ins = seedInputs();
+  updateLastWordUi();
+  const filled = ins.filter(i => WORDS.includes(i.value.trim().toLowerCase())).length;
+  $('btnLoadSeed').disabled = filled !== ins.length;
+  $('seedInHint').textContent = filled + tx(' van ', ' of ') + ins.length + tx(' woorden ingevuld', ' words filled in');
+  $('seedInMsg').classList.add('hidden');
+}
+function clearSeedBoxes() {
+  seedInputs().forEach(i => { i.value = ''; markSeedBox(i); });
+  $('coinBits').value = '';
+  $('lastWordList').innerHTML = '';
+  $('lastWordListBox').open = false;
+  $('lastWordArea').classList.add('hidden');
+  $('seedSuggest').innerHTML = '';
+  $('seedInMsg').classList.add('hidden');
+  seedBoxesChanged();
+}
+function loadSeed() {
+  const msg = $('seedInMsg');
+  msg.classList.add('hidden');
+  if (!selfTestOk) { msg.textContent = tx('Zelftest mislukt, laden geblokkeerd.', 'Self-test failed, loading blocked.'); msg.classList.remove('hidden'); return; }
+  const p = parseMnemonicInput(seedInputs().map(i => i.value.trim()).join(' '));
+  const errs = p.errors.slice();
+  if (p.count !== 12 && p.count !== 24) errs.unshift(p.count + tx(' woorden ingevoerd; alleen 12 of 24 woorden worden ondersteund.', ' words entered; only 12 or 24 words are supported.'));
+  let res = null;
+  if (!errs.length) {
+    try {
+      const ent = mnemonicToEntropy(p.words);
+      res = Object.assign({ ent }, entropyToMnemonic(ent));
+      if (res.words.join(' ') !== p.words.join(' ')) throw new Error(tx('interne controle mislukt', 'internal check failed'));
+      res.qr = compactSeedQR(ent);
+    } catch (e) {
+      errs.push(e.code === 'checksum' ? tx('De checksum klopt niet: waarschijnlijk is een woord verkeerd, verwisseld of vergeten.', 'The checksum is wrong: probably a word is incorrect, swapped or missing.') : tx('Fout: ', 'Error: ') + e.message);
+    }
+  }
+  if (errs.length) {
+    if (lastRolls && lastRolls.source === 'input') clearResult();   // never leave a previously loaded seed on screen after a failed load
+    $('seedInHint').textContent = '';
+    msg.textContent = errs.join(' ');
+    msg.classList.remove('hidden');
+    return;
+  }
+  testMode = false;
+  const len = p.count;
+  document.querySelector('input[name=len][value="' + len + '"]').checked = true;
+  clearResult();
+  update();
+  showResult(res, { len, source: 'input' });
+  $('seedInHint').textContent = tx('Geladen: ' + len + ' woorden.', 'Loaded: ' + len + ' words.');
+  $('seedSuggest').innerHTML = '';
+  $('result').scrollIntoView({ block: 'start' });
+}
+
+function alertBox(msg) {
+  const b = $('bannerSelftest');
+  b.textContent = msg;
+  b.classList.remove('hidden');
+  b.scrollIntoView({ block: 'center' });
+}
+
+function testRolls() {
+  // Test only: fills rolls from the browser CSPRNG (rejection sampling, no modulo bias). Fails closed, no fallback.
+  if (!(window.crypto && typeof crypto.getRandomValues === 'function')) { alertBox(tx('Testworpen niet mogelijk: deze browser heeft geen crypto.getRandomValues.', 'Test rolls not possible: this browser has no crypto.getRandomValues.')); return; }
+  const n = LENGTHS[currentLen()].rec;
+  const out = [];
+  while (out.length < n) {
+    const buf = new Uint8Array(64);
+    crypto.getRandomValues(buf);
+    for (const b of buf) if (b < 252 && out.length < n) out.push(1 + b % 6);
+  }
+  let s = '';
+  out.forEach((v, i) => { s += v + ((i + 1) % 5 === 0 ? ' ' : ''); });
+  ta.value = s.trim();
+  testMode = true;
+  $('confirmStrong').checked = false;
+  update();
+}
+
+function wipeAll() {
+  testMode = false;
+  clearSeedBoxes();
+  $('seedInArea').classList.add('hidden');
+  $('btnSeedInToggle').textContent = tx('Bestaande seed invoeren', 'Enter existing seed');
+  $('chkVerify').checked = false;
+  ta.value = '';
+  $('confirmStrong').checked = false;
+  clearResult();
+  update();
+}
+
+function netStatus() {
+  const online = navigator.onLine;
+  $('bannerOnline').classList.toggle('hidden', !online);
+  const b = $('badgeNet');
+  b.textContent = online ? tx('Netwerk: ONLINE', 'Network: ONLINE') : tx('Netwerk: offline', 'Network: offline');
+  b.className = 'badge ' + (online ? 'bad' : 'ok');
+}
+
+/* events */
+ta.addEventListener('input', update);
+document.querySelectorAll('input[name=len]').forEach(r => r.addEventListener('change', update));
+$('confirmStrong').addEventListener('change', update);
+$('chkVerify').addEventListener('change', update);
+$('dice').addEventListener('click', e => {
+  const d = e.target.closest('[data-d]');
+  if (!d) return;
+  ta.value += d.dataset.d;
+  update();
+});
+$('btnUndo').addEventListener('click', () => { ta.value = ta.value.replace(/[1-6]\s*$/, '').replace(/\s+$/, ''); update(); });
+$('btnClearRolls').addEventListener('click', wipeAll);
+$('btnWipe').addEventListener('click', wipeAll);
+$('btnTestRolls').addEventListener('click', testRolls);
+$('btnLoadSeed').addEventListener('click', loadSeed);
+$('btnClearSeedIn').addEventListener('click', () => { clearSeedBoxes(); if (lastRolls && lastRolls.source === 'input') clearResult(); focusSeedBox(0); });
+$('btnLastWord').addEventListener('click', () => {
+  $('lastWordArea').classList.toggle('hidden');
+  if (!$('lastWordArea').classList.contains('hidden')) { updateLastWordUi(); $('coinBits').focus(); }
+});
+$('coinBits').addEventListener('input', coinBitsChanged);
+$('coinBits').addEventListener('keydown', e => { if (e.key === 'Enter' && !$('btnLastFromCoins').disabled) $('btnLastFromCoins').click(); });
+$('btnLastFromCoins').addEventListener('click', () => {
+  try { fillLastWord(lastWordFor(firstWords(), $('coinBits').value)); }
+  catch (e) { $('seedInMsg').textContent = tx('Laatste woord: ', 'Last word: ') + e.message; $('seedInMsg').classList.remove('hidden'); }
+});
+$('lastWordListBox').addEventListener('toggle', () => { if ($('lastWordListBox').open) renderLastWordList(); });
+$('btnSeedInToggle').addEventListener('click', () => {
+  const a = $('seedInArea'), open = a.classList.contains('hidden');
+  a.classList.toggle('hidden', !open);
+  $('btnSeedInToggle').textContent = open ? tx('Invoer verbergen', 'Hide input') : tx('Bestaande seed invoeren', 'Enter existing seed');
+  if (open) focusSeedBox(0);
+});
+document.querySelectorAll('input[name=seedInLen]').forEach(r => r.addEventListener('change', () => buildSeedBoxes(true)));
+buildSeedBoxes(false);
+$('pp').addEventListener('input', updateFingerprint);
+$('ppShow').addEventListener('click', () => { const p = $('pp'); p.type = p.type === 'password' ? 'text' : 'password'; $('ppShow').textContent = p.type === 'password' ? tx('Toon', 'Show') : tx('Verberg', 'Hide'); });
+$('qrbox').addEventListener('click', openModal);
+$('btnModalClose').addEventListener('click', closeModal);
+$('btnAddrClose').addEventListener('click', closeAddr);
+$('xpubQr').addEventListener('click', openXpub);
+$('btnXpubClose').addEventListener('click', closeXpub);
+$('xpubModal').addEventListener('click', e => { if (e.target === $('xpubModal')) closeXpub(); });
+$('xpubFmt').addEventListener('change', () => { closeXpub(); renderXpub(); });
+$('btnAddrCheck').addEventListener('click', addrCheck);
+$('addrCheckIn').addEventListener('keydown', e => { if (e.key === 'Enter') addrCheck(); });
+$('addrCheckIn').addEventListener('input', () => { if (!$('btnAddrCheck').disabled) $('addrCheckOut').classList.add('hidden'); });
+$('autoHide').addEventListener('change', autoHideArm);
+['mousemove', 'mousedown', 'keydown', 'touchstart', 'wheel'].forEach(ev => document.addEventListener(ev, () => { if (autoHideDeadline) autoHideArm(); }, { passive: true }));
+setInterval(autoHideTick, 500);
+$('btnAddrPrev').addEventListener('click', () => openAddr(addrIdx - 1));
+$('btnAddrNext').addEventListener('click', () => openAddr(addrIdx + 1));
+$('addrModal').addEventListener('click', e => { if (e.target === $('addrModal')) closeAddr(); });
+$('btnStep').addEventListener('click', () => { stepIdx = stepIdx === null ? 0 : null; renderModal(); });
+$('btnPrev').addEventListener('click', () => stepMove(-1));
+$('btnNext').addEventListener('click', () => stepMove(1));
+$('qrModal').addEventListener('click', e => { if (e.target === $('qrModal')) closeModal(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeModal(); closeAddr(); closeXpub(); }
+  if (!$('addrModal').classList.contains('hidden')) {
+    if (e.key === 'ArrowRight') { e.preventDefault(); openAddr(addrIdx + 1); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); openAddr(addrIdx - 1); }
+    return;
+  }
+  if ($('qrModal').classList.contains('hidden')) return;
+  if (e.key === 'ArrowRight') { e.preventDefault(); stepMove(1); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); stepMove(-1); }
+});
+$('btnGenerate').addEventListener('click', generate);
+$('btnToggle').addEventListener('click', () => {
+  const w = $('secret');
+  w.classList.toggle('blur');
+  if (w.classList.contains('blur')) { closeModal(); closeXpub(); }
+  autoHideArm();
+  $('btnToggle').textContent = w.classList.contains('blur') ? tx('Tonen', 'Show') : tx('Verbergen', 'Hide');
+});
+$('qrGrid').addEventListener('change', () => { if (lastQr) $('qrbox').innerHTML = qrSvg(lastQr, $('qrGrid').checked); });
+window.addEventListener('online', netStatus);
+window.addEventListener('offline', netStatus);
+window.addEventListener('pagehide', () => { ta.value = ''; clearSeedBoxes(); testMode = false; clearResult(); });
+window.addEventListener('pageshow', () => { ta.value = ''; update(); });
+
+/* init */
+let errs;
+try { errs = selfTest(); } catch (e) { errs = [tx('uitzondering: ', 'exception: ') + e.message]; }
+selfTestOk = errs.length === 0;
+const hasSubtle = !!(window.crypto && crypto.subtle && crypto.subtle.digest);
+function renderBadges() {
+  $('badgeTest').textContent = selfTestOk ? tx('Zelftest: OK (SHA-256/512, woordenlijst, BIP39, laatste woord, fingerprint, BIP84, xpub/descriptor, SeedQR, xpub-QR)', 'Self-test: OK (SHA-256/512, wordlist, BIP39, last word, fingerprint, BIP84, xpub/descriptor, SeedQR, xpub QR)') : tx('Zelftest: MISLUKT', 'Self-test: FAILED');
+  $('badgeTest').className = 'badge ' + (selfTestOk ? 'ok' : 'bad');
+  $('badgeSubtle').textContent = tx('SHA-256 dubbelcheck: ', 'SHA-256 double check: ') + (hasSubtle ? tx('actief (WebCrypto)', 'active (WebCrypto)') : tx('niet beschikbaar', 'not available'));
+  $('badgeSubtle').className = 'badge ' + (hasSubtle ? 'ok' : 'warn');
+}
+setLang(LANG, true);
+renderBadges();
+if (!selfTestOk) alertBox(tx('Zelftest mislukt: ', 'Self-test failed: ') + errs.join(', ') + tx('. Het bestand is beschadigd of gewijzigd. Niet gebruiken.', '. The file is damaged or modified. Do not use.'));
+$('langNl').addEventListener('click', () => setLang('nl'));
+$('langEn').addEventListener('click', () => setLang('en'));
+netStatus();
+update();
+})();
+</script>
+</body>
+</html>

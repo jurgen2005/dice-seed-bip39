@@ -1,0 +1,2 @@
+# Keep bytes exactly as they are: the build must be reproducible on every platform.
+* -text
