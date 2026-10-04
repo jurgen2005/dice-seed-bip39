@@ -168,6 +168,26 @@ details ol, details ul { padding-left: 20px; }
 code { font-family: var(--mono); font-size: .88em; background: var(--chip); padding: 1px 5px; border-radius: 4px; }
 .small { font-size: .85rem; color: var(--muted); }
 footer { font-size: .8rem; color: var(--muted); text-align: center; margin-top: 20px; }
+.srcbtn { float: right; margin: -4px 0 8px 12px; font-weight: 600; border-color: var(--accent); }
+textarea#cards { text-transform: uppercase; min-height: 136px; }
+.cardround { margin: 10px 0 0; font-weight: 600; }
+.cardgrid { display: grid; grid-template-columns: repeat(13, minmax(0, 1fr)); gap: 5px; margin: 10px 0; }
+.cc { grid-column: var(--c); grid-row: var(--r); position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 60px; padding: 6px 0 4px; font: 700 1.05rem/1 var(--mono); background: var(--panel); border-radius: 6px; }
+.cc .st { font-size: 1.4rem; line-height: 1; }
+.cc .ix { position: absolute; top: 2px; right: 3px; font: 600 .62rem var(--mono); color: var(--muted); }
+.cc.blk { color: var(--ink); }
+.cc.red { color: #c0262d; background: rgba(192, 38, 45, .05); }
+@media (prefers-color-scheme: dark) { .cc.red { color: #ff7b7b; background: rgba(255, 123, 123, .06); } }
+.cc.used:disabled { opacity: .25; }
+.cc.used .rk, .cc.used .st { text-decoration: line-through; }
+.cc.used.last:disabled { opacity: .8; outline: 3px solid var(--accent); outline-offset: -1px; }
+.cc.pend { box-shadow: inset 0 0 0 3px var(--warn); }
+.cc.done:disabled { opacity: .55; }
+@media (max-width: 620px) {
+  .cardgrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .cc { grid-column: var(--mc); grid-row: var(--mr); flex-direction: row; gap: 6px; min-height: 42px; }
+  .cc .st { font-size: 1.2rem; }
+}
 @media print { .panel { break-inside: avoid; } }
 </style>
 </head>
@@ -175,9 +195,10 @@ footer { font-size: .8rem; color: var(--muted); text-align: center; margin-top: 
 <main>
   <div class="langsw" role="group" aria-label="Taal / Language"><button id="langNl" type="button" lang="nl">NL</button><button id="langEn" type="button" lang="en">EN</button></div>
   <h1>Dobbelsteen-seed (BIP39)</h1>
-  <p class="sub">Genereert een BIP39-seed uitsluitend uit jouw dobbelsteenworpen. Een echte seed komt nooit uit een random-generator: alleen de knop "Testworpen (random)" gebruikt de random-generator van de browser, en een seed daaruit wordt rood gemarkeerd als TESTSEED. De pagina maakt geen netwerkverbindingen en slaat niets op.</p>
+  <p class="sub">Genereert een BIP39-seed uitsluitend uit jouw dobbelsteenworpen, of uit een geschudde stok speelkaarten. Een echte seed komt nooit uit een random-generator: alleen de testknoppen gebruiken de random-generator van de browser, en een seed daaruit wordt rood gemarkeerd als TESTSEED. De pagina maakt geen netwerkverbindingen en slaat niets op.</p>
 
-  <div id="bannerOnline" class="banner bad hidden">Deze computer is online. Verbreek de netwerkverbinding (wifi uit, kabel eruit) voordat je echte worpen invoert.</div>
+  <div id="bannerHosted" class="banner bad hidden">ONLINE PROBEERVERSIE. Deze pagina is geopend via een webadres, niet als gecontroleerd bestand op je eigen computer. Alles wat je hier maakt, wordt gemarkeerd als TESTSEED: gebruik het nooit voor echte waarde, en typ hier nooit een echte seed in. Voor echt gebruik: download dice-seed.html uit de release op github.com/jurgen2005/dice-seed-bip39, controleer de SHA-256 en open het bestand op een offline computer.</div>
+  <div id="bannerOnline" class="banner bad hidden">Deze computer is online. Verbreek de netwerkverbinding (wifi uit, kabel eruit) voordat je echte worpen of kaarten invoert.</div>
   <div id="bannerSelftest" class="banner bad hidden"></div>
 
   <div class="badges">
@@ -194,10 +215,12 @@ footer { font-size: .8rem; color: var(--muted); text-align: center; margin-top: 
       <label class="opt"><input type="radio" name="len" value="24" checked> 24 woorden <small>256 bit</small></label>
     </div>
     <p class="small" id="lengthInfo" style="margin-top:10px"></p>
-    <label class="opt verifyopt"><input type="checkbox" id="chkVerify"> Controlemodus: sta 50 (12 woorden) of 99 (24 woorden) worpen toe, zoals SeedSigner. Alleen om een elders gemaakte dobbelsteen-seed na te rekenen.</label>
+    <label class="opt verifyopt" id="verifyWrap"><input type="checkbox" id="chkVerify"> Controlemodus: sta 50 (12 woorden) of 99 (24 woorden) worpen toe, zoals SeedSigner. Alleen om een elders gemaakte dobbelsteen-seed na te rekenen.</label>
   </section>
 
   <section class="panel">
+    <button id="btnSource" type="button" class="srcbtn">Speelkaarten gebruiken</button>
+    <div id="diceArea">
     <h2>2. Worpen invoeren</h2>
     <p class="small">Typ elke worp als cijfer 1 tot en met 6, of gebruik de knoppen. Spaties en regeleinden mogen (worden genegeerd). Elk ander teken blokkeert de berekening, zodat een tikfout nooit stilletjes verdwijnt.</p>
     <form autocomplete="off" onsubmit="return false">
@@ -226,9 +249,41 @@ footer { font-size: .8rem; color: var(--muted); text-align: center; margin-top: 
       <div class="stat"><b id="stNeed">0</b><span>bit nodig</span></div>
     </div>
     <div id="levelStatus" class="status bad"></div>
+    </div>
+
+    <div id="cardArea" class="hidden">
+    <h2>2. Kaarten invoeren</h2>
+    <p class="small">Neem een complete stok van 52 kaarten, zonder jokers. Schud grondig: minstens 7 keer riffelen, of de kaarten met de beeldzijde naar beneden een minuut lang over tafel door elkaar schuiven. Alleen overhands schudden is niet genoeg. Voer daarna alle 52 kaarten in, van boven naar onder. Voor 24 woorden schud je de stok daarna opnieuw even grondig en voer je een tweede ronde van 52 in.</p>
+    <p class="small">Klik de kaart aan in het raster: een ingevoerde kaart wordt grijs, met zijn volgnummer in de hoek. Of typ buiten het tekstveld eerst de rang (<code>A</code> <code>2</code>-<code>9</code> <code>T</code> <code>J</code> <code>Q</code> <code>K</code>) en dan de kleur (<code>S</code> schoppen, <code>H</code> harten, <code>C</code> klaveren, <code>D</code> ruiten); Backspace wist de laatste kaart. In het tekstveld mag ook <code>10</code> voor T en mogen de symbolen ♠ ♥ ♣ ♦. Elke ongeldige invoer blokkeert de berekening.</p>
+    <form autocomplete="off" onsubmit="return false">
+      <textarea id="cards" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-gramm="false" data-lt-active="false" placeholder="bijv. AS TH 9D QC 4H ..."></textarea>
+    </form>
+    <div id="cardRoundInfo" class="cardround"></div>
+    <div class="cardgrid" id="cardGrid" role="group" aria-label="Kaarten"></div>
+    <div class="row">
+      <button id="btnCardUndo">Laatste kaart wissen</button>
+      <button id="btnCardClear" class="danger">Alle kaarten wissen</button>
+      <button id="btnTestCards" class="btnTest" title="Vult een willekeurig geschudde stok in met de browser-RNG, alleen om de tool te testen">Testkaarten (random)</button>
+      <span id="cardKeyHint" class="small"></span>
+    </div>
+    <div id="testBannerCards" class="testflag hidden">TESTMODUS: deze kaartvolgorde komt uit de random-generator van de browser, niet uit een geschudde stok. Alleen voor testen, nooit voor echte waarde gebruiken.</div>
+    <div id="cardInvalidMsg" class="status bad hidden"></div>
+    <div class="meter" aria-hidden="true"><div class="fill" id="cardMeterFill"></div></div>
+    <div class="stats">
+      <div class="stat"><b id="cstCount">0</b><span>kaarten</span></div>
+      <div class="stat"><b id="cstRounds">0</b><span>volledige rondes van 52</span></div>
+      <div class="stat"><b id="cstBits">0</b><span>bit entropie (perfect geschud)</span></div>
+      <div class="stat"><b id="cstNeed">0</b><span>bit nodig</span></div>
+    </div>
+    <div id="cardStatus" class="status bad"></div>
+    <ul class="flags" id="cardFlags"></ul>
+    <label id="cardConfirmWrap" class="opt hidden" style="margin-top:10px">
+      <input type="checkbox" id="cardConfirmStrong"> Ik heb dit gecontroleerd: de stok is echt grondig geschud.
+    </label>
+    </div>
   </section>
 
-  <section class="panel">
+  <section class="panel" id="diceQuality">
     <h2>Kwaliteitscontrole van de worpen</h2>
     <p class="small">Controleert op tikpatronen en een afwijkende verdeling. Een echte dobbelsteen haalt deze checks vrijwel altijd; een waarschuwing betekent: kijk kritisch naar je invoer of je dobbelsteen.</p>
     <div class="faces" id="faces"></div>
@@ -251,6 +306,7 @@ footer { font-size: .8rem; color: var(--muted); text-align: center; margin-top: 
   <section class="panel">
     <h2>Of: bestaande seed invoeren</h2>
     <p class="small">Om een bestaande BIP39-seed (12 of 24 Engelse woorden) te controleren: Compact SeedQR, fingerprint en adressen. Het resultaat verschijnt bij stap 3.</p>
+    <div id="hostedSeedInWarn" class="testflag hidden">Online probeerversie: typ hier nooit je echte seed. Een echte seed die je in een webpagina intypt, behandel je daarna als gelekt: zet het saldo over naar een nieuwe seed. Om deze functie te proberen kun je de bekende testseed gebruiken: 11 keer abandon, met als 12e woord about.</div>
     <button id="btnSeedInToggle">Bestaande seed invoeren</button>
     <div id="seedInArea" class="hidden" style="margin-top:12px">
       <div class="row">
@@ -296,6 +352,7 @@ footer { font-size: .8rem; color: var(--muted); text-align: center; margin-top: 
       <div id="inputBannerOut" class="inputflag hidden">INGEVOERDE SEED: niet door deze tool uit dobbelstenen gemaakt. Hoe veilig deze seed is, hangt af van hoe hij oorspronkelijk is gemaakt.</div>
       <div id="verifyBannerOut" class="verifyflag hidden">CONTROLEMODUS: berekend met het verlaagde SeedSigner-minimum. Bedoeld om na te rekenen, niet als nieuwe seed van deze tool.</div>
       <div id="testBannerOut" class="testflag hidden">TESTSEED (browser-RNG). Niet gebruiken voor echte waarde.</div>
+      <div id="hostedBannerOut" class="testflag hidden">TESTSEED (online probeerversie). Niet gebruiken voor echte waarde.</div>
       <div class="secret" id="secret">
         <div class="words" id="words"></div>
         <h3>Compact SeedQR</h3>
@@ -376,7 +433,7 @@ footer { font-size: .8rem; color: var(--muted); text-align: center; margin-top: 
       </div>
       <details>
         <summary>Technische details (voor controle)</summary>
-        <div class="kv"><span>Invoer (alleen cijfers, zo gehasht):</span><br><span id="dRolls"></span></div>
+        <div class="kv"><span class="lblDice">Invoer (alleen cijfers, zo gehasht):</span><span class="lblCards hidden">Invoer (kaarten met één spatie ertussen, precies zo gehasht):</span><br><span id="dRolls"></span></div>
         <div class="kv"><span>SHA-256(invoer):</span><br><span id="dHash"></span></div>
         <div class="kv"><span>Gebruikte entropie (eerste <b id="dEntBits"></b> bit):</span><br><span id="dEnt"></span></div>
         <div class="kv"><span>BIP39-checksum (bits):</span> <span id="dCs"></span></div>
@@ -407,6 +464,44 @@ footer { font-size: .8rem; color: var(--muted); text-align: center; margin-top: 
         <li>Compact SeedQR: dezelfde entropie (16 of 32 bytes) als QR-code in bytemodus, foutcorrectie L, versie 1 (21 x 21) of versie 2 (25 x 25). De QR wordt na het maken teruggelezen en gecontroleerd.</li>
       </ol>
       <p>Dit is dezelfde methode als Ian Coleman BIP39 met <b>Entropy Type = Base 10</b> en als de Bitcoin Seed Tool met <b>Dice</b>. Negeer bij Ian in base 10 de entropieteller: die telt 3 bit per worp en overschat dus.</p>
+      <p>Bij speelkaarten is alleen stap 1 anders: de invoer is de kaartenreeks in de notatie hieronder (zie "Speelkaarten"). Stap 2 tot en met 6 zijn gelijk.</p>
+    </details>
+    <details>
+      <summary>Speelkaarten: werkwijze, rekenwijze en controles</summary>
+      <h4>Notatie en berekening</h4>
+      <ol>
+        <li>Elke kaart wordt twee tekens: rang <code>A 2 3 4 5 6 7 8 9 T J Q K</code> (T = 10) en kleur <code>S</code> schoppen ♠, <code>H</code> harten ♥, <code>C</code> klaveren ♣, <code>D</code> ruiten ♦.</li>
+        <li>Alle kaarten van alle rondes achter elkaar, in de volgorde van invoer, gescheiden door precies één spatie, zonder spatie aan begin of eind. Bijvoorbeeld <code>AS TH 9D QC ...</code>. Regeleinden in het invoerveld tellen niet mee; de exacte tekst staat onder "Technische details".</li>
+        <li>SHA-256 over die tekst (ASCII). Daarna precies zoals bij dobbelstenen: de eerste 128 of 256 bit zijn de entropie.</li>
+      </ol>
+      <h4>Hoeveel kaarten en waarom een volledige stok</h4>
+      <ul>
+        <li>Een perfect geschudde stok heeft 52! mogelijke volgordes: log2(52!) = 225,6 bit. Voor 12 woorden (128 bit) is één ronde nodig, voor 24 woorden (256 bit) twee rondes van 52 (451 bit). De marge is in beide gevallen een factor 1,76. Extra volledige rondes mogen; ze tellen mee.</li>
+        <li>De 52e kaart van een ronde voegt geen entropie toe, want die ligt vast. Hij telt wel als controle: elke kaart moet precies één keer per ronde voorkomen. Een dubbele of vergeten kaart wordt daardoor altijd opgemerkt.</li>
+        <li>Deze tool rekent bewust niet met "trekken en terugleggen". Dan moet je na elke kaart opnieuw grondig schudden, 23 tot 45 keer of meer. In de praktijk wordt dat couperen of kort mengen, en dat levert veel minder op dan de 5,7 bit per kaart die de berekening aanneemt. Een dubbel ingevoerde kaart valt bij die methode ook niet op.</li>
+      </ul>
+      <h4>Het schudden is het zwakke punt</h4>
+      <ul>
+        <li>Bij dobbelstenen is elke worp een nieuwe, onafhankelijke gebeurtenis. Bij kaarten hangt alles af van hoe grondig je schudt, en dat zie je niet aan de uitkomst.</li>
+        <li>Riffelen (de stok in twee helften door elkaar laten ritsen): volgens het onderzoek van Bayer en Diaconis (1992) is een stok na ongeveer 7 keer goed gemengd; na 3 of 4 keer zit er nog duidelijk structuur in. Alleen overhands schudden (pakketjes van de ene naar de andere hand) is veel minder effectief: daarvan zijn duizenden keren nodig. Een veelgebruikt alternatief is de kaarten met de beeldzijde naar beneden een minuut lang over tafel door elkaar schuiven.</li>
+        <li>Begin bij voorkeur niet met een nieuwe, gesorteerde stok zonder eerst extra te mengen: een half geschudde gesorteerde stok verraadt zich wel in de controle hieronder, een half geschudde willekeurige stok niet.</li>
+        <li>De marge van 1,76 vangt een wat slordig geschudde stok op, niet een stok die nauwelijks geschud is.</li>
+      </ul>
+      <h4>Automatische controles</h4>
+      <ul>
+        <li>Elke kaart precies één keer per ronde; alleen volledige rondes van 52.</li>
+        <li>Opeenvolgende kaarten van dezelfde kleur en naastgelegen rang (bijv. 7♥ 8♥ of 8♥ 7♥), het restant van een gesorteerde stok: bij goed schudden gemiddeld 1,8 per ronde. Waarschuwing vanaf 6 (kans bij goed schudden ongeveer 1%), sterke waarschuwing vanaf 8 (ongeveer 0,05%).</li>
+        <li>Vanaf ronde 2: kaarten die opnieuw naast elkaar liggen zoals in de ronde ervoor (in dezelfde of omgekeerde volgorde), een teken van te weinig opnieuw schudden. Bij goed schudden gemiddeld 2. Waarschuwing vanaf 7 (ongeveer 0,3%), sterke waarschuwing vanaf 8 (ongeveer 0,07%).</li>
+        <li>Deze controles vangen alleen grove fouten. Geen waarschuwing betekent niet dat er goed geschud is.</li>
+      </ul>
+      <h4>Narekenen in een tweede tool</h4>
+      <p>De kaartmodus van Ian Coleman gebruikt een andere notatie (met de symbolen ♠ ♥ ♦ ♣) en rekent de entropie alsof kaarten worden teruggelegd. Die geeft dus andere woorden. Narekenen gaat zo:</p>
+      <ol>
+        <li>Neem de invoer onder "Technische details" en bereken de SHA-256, bijvoorbeeld in de Terminal: <code>printf '%s' 'AS TH 9D ...' | shasum -a 256</code> (Linux: <code>sha256sum</code>). Die moet gelijk zijn aan "SHA-256(invoer)" in deze tool.</li>
+        <li>Neem de eerste 32 hex-tekens (12 woorden) of alle 64 (24 woorden) en voer die in bij Ian Coleman: Entropy, type <b>Hex</b>, Mnemonic Length <b>Use Raw Entropy</b>. Dezelfde woorden = geen van beide tools heeft je invoer gemanipuleerd.</li>
+      </ol>
+      <h4>Knop "Testkaarten (random)"</h4>
+      <p>Alleen om de tool uit te proberen. Schudt virtueel met Fisher-Yates op <code>crypto.getRandomValues</code>, met afwijzing van waarden boven het grootste veelvoud zodat elke volgorde precies even waarschijnlijk is, zonder terugval op <code>Math.random</code>. Vult precies het benodigde aantal rondes in. De uitkomst wordt rood gemarkeerd als TESTSEED, net als bij testworpen.</p>
     </details>
     <details>
       <summary>Hoe de randomizer werkt (knop "Testworpen (random)")</summary>
@@ -465,7 +560,8 @@ footer { font-size: .8rem; color: var(--muted); text-align: center; margin-top: 
         <li>Controleer de SHA-256 van dit HTML-bestand tegen <code>SHA256SUMS</code> in de release op <code>github.com/jurgen2005/dice-seed-bip39/releases</code>, of bouw het bestand zelf opnieuw uit de broncode daar (<code>python3 build.py</code>) en vergelijk.</li>
         <li>Gebruik een offline computer, bij voorkeur opgestart van een live-USB (bijv. Tails), zonder netwerk.</li>
         <li>Gooi met een goede dobbelsteen (casinodobbelsteen ideaal). Gooi echt: schudden in je hand of een beker en laten rollen, niet neerleggen of een worp overdoen. Schrijf de worpen eerst op papier.</li>
-        <li>Controleer de uitkomst in een tweede, onafhankelijke tool (Ian Coleman, Entropy, Base 10, zelfde lengte). Zelfde woorden = geen van beide tools heeft je invoer gemanipuleerd.</li>
+        <li>Of gebruik speelkaarten: een complete stok, minstens 7 keer riffelen, en voor 24 woorden een tweede ronde na opnieuw grondig schudden. Zie "Speelkaarten" hierboven.</li>
+        <li>Controleer de uitkomst in een tweede, onafhankelijke tool (Ian Coleman, Entropy, Base 10, zelfde lengte). Zelfde woorden = geen van beide tools heeft je invoer gemanipuleerd. Bij speelkaarten via de SHA-256 en Hex, zoals beschreven onder "Speelkaarten".</li>
         <li>Schrijf de woorden op papier of metaal. Geen foto, geen screenshot, niet kopiëren/plakken. Wil je de Compact SeedQR bewaren: teken hem over op een SeedQR-sjabloon (raster aanzetten), niet printen op een netwerkprinter.</li>
         <li>Klik "Alles wissen", sluit de browser en zet de computer uit.</li>
         <li>Overweeg een sterke BIP39-passphrase als extra laag.</li>
@@ -506,7 +602,7 @@ footer { font-size: .8rem; color: var(--muted); text-align: center; margin-top: 
     </div>
   </div>
 
-  <footer>Dobbelsteen-seed v2.10 · standalone, geen externe bestanden · eigen SHA-256 met WebCrypto-dubbelcheck · BIP39 Engelse woordenlijst (SHA-256 2f5eed53…4dbda, bij laden geverifieerd) · bron, releases en hashes: github.com/jurgen2005/dice-seed-bip39</footer>
+  <footer>Dobbelsteen-seed v2.12 · standalone, geen externe bestanden · eigen SHA-256 met WebCrypto-dubbelcheck · BIP39 Engelse woordenlijst (SHA-256 2f5eed53…4dbda, bij laden geverifieerd) · bron, releases en hashes: github.com/jurgen2005/dice-seed-bip39</footer>
 </main>
 
 <script>
@@ -516,6 +612,9 @@ footer { font-size: .8rem; color: var(--muted); text-align: center; margin-top: 
 /* ---------- Language: starts in the browser language, NL/EN switch top right, nothing is stored ---------- */
 let LANG = /^nl/i.test(navigator.language || '') ? 'nl' : 'en';
 const tx = (nl, en) => LANG === 'en' ? en : nl;
+// Not opened as a local file (file://), e.g. from GitHub Pages or any web server: online trial version.
+// Fails closed: every result is marked TESTSEED and a banner says so. Calculations are unchanged.
+const HOSTED = location.protocol !== 'file:';
 const I18N_EN = __I18N_EN__;
 
 /* ---------- BIP39 English wordlist (2048) ---------- */
@@ -948,6 +1047,58 @@ function rollsToSeed(rolls, len) {
   if (hex(mnemonicToEntropy(m.words)) !== hex(ent)) throw new Error(tx('roundtrip mislukt', 'roundtrip failed'));
   return { digest, ent, ...m };
 }
+
+/* ---------- Playing cards: full shuffled deck(s), ASCII notation, same SHA-256 route as the dice ---------- */
+const CARD_RANKS = 'A23456789TJQK';
+const CARD_SUITS = 'SHCD';                                   // grid order: spades, hearts, clubs, diamonds (black/red alternate)
+const SUIT_SYM = { S: '♠', H: '♥', C: '♣', D: '♦' };
+const LOG2_52F = (() => { let s = 0; for (let k = 2; k <= 52; k++) s += Math.log2(k); return s; })();   // 225.58 bit per round
+const CARD_ROUNDS = { 12: 1, 24: 2 };
+// Parse free text into canonical two-character codes ("AS", "TH", ...). Accepts 10 for T and the suit symbols.
+function parseCards(text) {
+  const cards = [];
+  let bad = null;
+  const re = /[^\s,;]+/g;
+  let m;
+  while ((m = re.exec(text))) {
+    const t = m[0].toUpperCase().replace(/[♠♤]/g, 'S').replace(/[♥♡]/g, 'H').replace(/[♣♧]/g, 'C').replace(/[♦♢]/g, 'D');
+    const mm = /^(10|[A2-9TJQK])([SHCD])$/.exec(t);
+    if (!mm) { if (!bad) bad = { tok: m[0], index: cards.length + 1 }; continue; }
+    cards.push((mm[1] === '10' ? 'T' : mm[1]) + mm[2]);
+  }
+  return { cards, bad };
+}
+function cardBits(n) {
+  let b = Math.floor(n / 52) * LOG2_52F;
+  for (let k = 0; k < n % 52; k++) b += Math.log2(52 - k);
+  return b;
+}
+// Structural checks: duplicates per round, remnants of sorted order, neighbours kept from the previous round.
+// Thresholds from 400,000 simulated perfect shuffles: same-suit neighbour ranks mean 1.84, P(>=6) 1.0%, P(>=8) 0.05%;
+// neighbours kept from the previous round mean 1.96, P(>=7) 0.3%, P(>=8) 0.07%.
+function cardChecks(cards) {
+  const rounds = [];
+  for (let i = 0; i < cards.length; i += 52) rounds.push(cards.slice(i, i + 52));
+  const dups = [], flags = [];
+  rounds.forEach((r, ri) => {
+    const seen = {};
+    r.forEach((c, i) => { if (c in seen) dups.push({ card: c, round: ri + 1, a: seen[c] + 1, b: i + 1 }); else seen[c] = i; });
+    let seq = 0;
+    for (let i = 1; i < r.length; i++) if (r[i][1] === r[i - 1][1] && Math.abs(CARD_RANKS.indexOf(r[i][0]) - CARD_RANKS.indexOf(r[i - 1][0])) === 1) seq++;
+    if (seq >= 8) flags.push(['strong', tx('Ronde ' + (ri + 1) + ': ' + seq + ' keer twee opeenvolgende kaarten van dezelfde kleur (bijv. 7♥ 8♥), verwacht ongeveer 2. Dit lijkt op een gesorteerde stok die nauwelijks geschud is.', 'Round ' + (ri + 1) + ': ' + seq + ' times two consecutive cards of the same suit (e.g. 7♥ 8♥), expected about 2. This looks like a sorted deck that was hardly shuffled.')]);
+    else if (seq >= 6) flags.push(['warn', tx('Ronde ' + (ri + 1) + ': ' + seq + ' keer twee opeenvolgende kaarten van dezelfde kleur, verwacht ongeveer 2. Komt bij goed schudden ongeveer 1 op de 100 keer voor. Schud bij twijfel opnieuw.', 'Round ' + (ri + 1) + ': ' + seq + ' times two consecutive cards of the same suit, expected about 2. Happens about 1 in 100 times with a good shuffle. Reshuffle if in doubt.')]);
+    if (ri > 0) {
+      const p = rounds[ri - 1], adj = new Set();
+      for (let i = 1; i < p.length; i++) { adj.add(p[i - 1] + p[i]); adj.add(p[i] + p[i - 1]); }
+      let kept = 0;
+      for (let i = 1; i < r.length; i++) if (adj.has(r[i - 1] + r[i])) kept++;
+      if (kept >= 8) flags.push(['strong', tx('Ronde ' + (ri + 1) + ': ' + kept + ' kaartparen liggen nog naast elkaar zoals in ronde ' + ri + ', verwacht ongeveer 2. De stok is tussen de rondes te weinig geschud.', 'Round ' + (ri + 1) + ': ' + kept + ' card pairs are still next to each other as in round ' + ri + ', expected about 2. The deck was not shuffled enough between rounds.')]);
+      else if (kept >= 7) flags.push(['warn', tx('Ronde ' + (ri + 1) + ': ' + kept + ' kaartparen liggen nog naast elkaar zoals in ronde ' + ri + ', verwacht ongeveer 2. Komt bij goed schudden ongeveer 3 op de 1000 keer voor.', 'Round ' + (ri + 1) + ': ' + kept + ' card pairs are still next to each other as in round ' + ri + ', expected about 2. Happens about 3 in 1000 times with a good shuffle.')]);
+    }
+  });
+  return { rounds, dups, flags };
+}
+function cardLabel(c) { return (c[0] === 'T' ? '10' : c[0]) + SUIT_SYM[c[1]]; }
 
 /* ---------- QR encoder: byte mode, ECC level L, versions 1-2 (Compact SeedQR) ---------- */
 const QR_SPEC = { 1: { data: 19, ecc: 7, align: [] }, 2: { data: 34, ecc: 10, align: [6, 18] }, 3: { data: 55, ecc: 15, align: [6, 22] } };
@@ -1386,6 +1537,16 @@ function selfTest() {
   const R = '3615243362511456361524336251145636152433625114563615243362511456361524336251145636152433625114563615';
   eq('dobbelsteen 12', rollsToSeed(R, 12).words.join(' '), 'knock mercy iron pulse minute aim little pear weird forget cinnamon cube');
   eq('dobbelsteen 24', rollsToSeed(R, 24).words.join(' '), 'knock mercy iron pulse minute aim little pear weird forget cinnamon curious confirm sense club zero satoshi jewel paddle museum wolf thought seat exhibit');
+  // End-to-end card vectors: sorted deck (S H C D, A..K) and sorted + reversed, independently computed (Python 'mnemonic' and embit)
+  const DK = []; CARD_SUITS.split('').forEach(s => CARD_RANKS.split('').forEach(k => DK.push(k + s)));
+  eq('kaarten notatie', parseCards('as 10h\n9♦, qC').cards.join(' '), 'AS TH 9D QC');
+  eq('kaarten ongeldig', parseCards('AS 1H ZZ').bad && parseCards('AS 1H ZZ').bad.tok, '1H');
+  eq('kaarten 12', rollsToSeed(DK.join(' '), 12).words.join(' '), 'winter waste waste proof holiday need myth great safe trial match vault');
+  eq('kaarten 24', rollsToSeed(DK.concat(DK.slice().reverse()).join(' '), 24).words.join(' '), 'cheese scissors popular burger retire thunder group boy lady future vanish supreme switch slot news weekend join produce surge setup trim cigar grass moment');
+  eq('kaarten entropie 1 ronde', cardBits(52).toFixed(2), '225.58');
+  const ck = cardChecks(DK.concat(DK));
+  eq('kaarten controle', ck.dups.length + '/' + ck.flags.filter(f => f[0] === 'strong').length, '0/3');
+  eq('kaarten dubbel', cardChecks(['AS', 'KD', 'AS']).dups.length, 1);
   // SHA-512, RIPEMD-160 and master fingerprint vectors (fingerprints checked with python-mnemonic + embit)
   eq('sha512("abc")', hex(sha512(ascii('abc'))), 'ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f');
   eq('ripemd160("abc")', hex(ripemd160(ascii('abc'))), '8eb208f7e05d987a9b044a8e98c6b087f15a0bfc');
@@ -1495,7 +1656,7 @@ function applyStaticLang() {
 function setLang(l, initial) {
   LANG = l;
   document.documentElement.lang = l;
-  document.title = tx('Dobbelsteen-seed (BIP39)', 'Dice seed (BIP39)');
+  document.title = tx('Dobbelsteen-seed (BIP39)', 'Dice seed (BIP39)') + (HOSTED ? tx(' - online probeerversie', ' - online trial version') : '');
   for (const [id, v] of [['langNl', 'nl'], ['langEn', 'en']]) { $(id).classList.toggle('on', l === v); $(id).setAttribute('aria-pressed', String(l === v)); }
   applyStaticLang();
   if (!initial) relabel();
@@ -1526,7 +1687,12 @@ const ta = $('rolls');
 let selfTestOk = false;
 let lastRolls = null;
 let lastQr = null;
-let testMode = false;
+let testMode = false;    // dice input came from the test randomizer
+let testCards = false;   // card input came from the test randomizer
+let entSource = 'dice';  // 'dice' or 'cards': which input section 2 shows and "Calculate seed" uses
+let cardPend = null;     // rank typed on the keyboard, waiting for the suit
+let cardKeyMsg = '';
+const cta = $('cards');
 let lastWords = null;
 let fpJob = 0;
 let lastFp = null;
@@ -1545,6 +1711,7 @@ function effLen(len) {
   return L;
 }
 function currentLen() { return +document.querySelector('input[name=len]:checked').value; }
+function shownTest() { return !!(lastShown && (lastShown.meta.test || lastShown.meta.hosted)); }
 function parseInput() {
   const raw = ta.value;
   const bad = raw.search(/[^1-6\s]/);
@@ -1603,7 +1770,7 @@ async function updateFingerprint() {
   }
 }
 function ppLabel() { return $('pp').value ? tx('met passphrase', 'with passphrase') : tx('zonder passphrase', 'without passphrase'); }
-function fpNoteText() { return ppLabel() + (testMode ? ', TESTSEED' : '') + tx('. Vergelijk met de fingerprint op je signing device of in je wallet.', '. Compare with the fingerprint on your signing device or in your wallet.'); }
+function fpNoteText() { return ppLabel() + (shownTest() ? ', TESTSEED' : '') + tx('. Vergelijk met de fingerprint op je signing device of in je wallet.', '. Compare with the fingerprint on your signing device or in your wallet.'); }
 function renderAddrs() {
   const box = $('addrList');
   box.innerHTML = '';
@@ -1626,7 +1793,7 @@ function openAddr(i) {
   try { q = addressQR(a.addr); } catch (e) { alertBox(tx('Adres-QR afgebroken: ', 'Address QR aborted: ') + e.message); return; }
   $('addrModalQr').innerHTML = qrSvg(q, false);
   $('addrModalText').textContent = a.addr.match(/.{1,4}/g).join(' ');
-  $('addrModalPath').textContent = a.path + ' (' + ppLabel() + ', fingerprint ' + (lastFp || '?') + ')' + (testMode ? ' TESTSEED' : '');
+  $('addrModalPath').textContent = a.path + ' (' + ppLabel() + ', fingerprint ' + (lastFp || '?') + ')' + (shownTest() ? ' TESTSEED' : '');
   $('btnAddrPrev').disabled = addrIdx === 0;
   $('btnAddrNext').disabled = addrIdx === lastAddrs.length - 1;
   $('addrModal').classList.remove('hidden');
@@ -1657,7 +1824,7 @@ function openXpub() {
   $('xpubModalQr').innerHTML = qrSvg(q, false);
   $('xpubModalText').textContent = txt;
   const f = $('xpubFmt');
-  $('xpubModalMeta').textContent = f.options[f.selectedIndex].text.split(':')[0] + ", m/84'/0'/0', fingerprint " + lastXpub.mfp + ' (' + ppLabel() + '), QR ' + q.size + ' x ' + q.size + (testMode ? ' TESTSEED' : '');
+  $('xpubModalMeta').textContent = f.options[f.selectedIndex].text.split(':')[0] + ", m/84'/0'/0', fingerprint " + lastXpub.mfp + ' (' + ppLabel() + '), QR ' + q.size + ' x ' + q.size + (shownTest() ? ' TESTSEED' : '');
   $('xpubModal').classList.remove('hidden');
 }
 function closeXpub() {
@@ -1761,7 +1928,7 @@ function closeModal() {
 function openModal() {
   if (!lastQr || $('secret').classList.contains('blur')) return;
   renderModal();
-  $('qrModalMeta').textContent = 'Compact SeedQR ' + lastQr.size + ' x ' + lastQr.size + tx(', blokken van ', ', blocks of ') + qrBlockSize(lastQr.size) + ' x ' + qrBlockSize(lastQr.size) + tx(' (kolommen 1 tot ', ' (columns 1 to ') + qrBlocks(lastQr.size).length + tx(', rijen A tot ', ', rows A to ') + String.fromCharCode(64 + qrBlocks(lastQr.size).length) + ').' + (lastFp ? ' Fingerprint ' + lastFp + ($('pp').value ? tx(' (met passphrase).', ' (with passphrase).') : '.') : '') + (testMode ? ' TESTSEED.' : '');
+  $('qrModalMeta').textContent = 'Compact SeedQR ' + lastQr.size + ' x ' + lastQr.size + tx(', blokken van ', ', blocks of ') + qrBlockSize(lastQr.size) + ' x ' + qrBlockSize(lastQr.size) + tx(' (kolommen 1 tot ', ' (columns 1 to ') + qrBlocks(lastQr.size).length + tx(', rijen A tot ', ', rows A to ') + String.fromCharCode(64 + qrBlocks(lastQr.size).length) + ').' + (lastFp ? ' Fingerprint ' + lastFp + ($('pp').value ? tx(' (met passphrase).', ' (with passphrase).') : '.') : '') + (shownTest() ? ' TESTSEED.' : '');
   $('qrModal').classList.remove('hidden');
 }
 function clearResult() {
@@ -1800,6 +1967,13 @@ function clearResult() {
 
 function update() {
   const len = currentLen();
+  const cardsMode = entSource === 'cards';
+  $('diceArea').classList.toggle('hidden', cardsMode);
+  $('diceQuality').classList.toggle('hidden', cardsMode);
+  $('verifyWrap').classList.toggle('hidden', cardsMode);
+  $('cardArea').classList.toggle('hidden', !cardsMode);
+  $('btnSource').textContent = cardsMode ? tx('Dobbelstenen gebruiken', 'Use dice') : tx('Speelkaarten gebruiken', 'Use playing cards');
+  if (cardsMode) { updateCards(len); return; }
   const L = effLen(len);
   const { rolls, bad, badChar } = parseInput();
   const n = rolls.length;
@@ -1867,6 +2041,181 @@ function update() {
   if (lastRolls !== null && (lastRolls.rolls !== rolls || lastRolls.len !== len || (lastRolls.source === 'dice' && lastRolls.verify !== verifyMode()))) clearResult();
 }
 
+/* ---------- Card input ---------- */
+function buildCardGrid() {
+  const g = $('cardGrid');
+  g.innerHTML = '';
+  CARD_SUITS.split('').forEach((s, si) => CARD_RANKS.split('').forEach((r, ri) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'cc ' + (s === 'H' || s === 'D' ? 'red' : 'blk');
+    b.dataset.c = r + s;
+    b.style.cssText = '--c:' + (ri + 1) + ';--r:' + (si + 1) + ';--mc:' + (si + 1) + ';--mr:' + (ri + 1);
+    const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = r === 'T' ? '10' : r;
+    const st = document.createElement('span'); st.className = 'st'; st.textContent = SUIT_SYM[s];
+    const ix = document.createElement('small'); ix.className = 'ix';
+    b.append(rk, st, ix);
+    g.appendChild(b);
+  }));
+}
+function suitName(s) { return { S: tx('schoppen', 'spades'), H: tx('harten', 'hearts'), C: tx('klaveren', 'clubs'), D: tx('ruiten', 'diamonds') }[s]; }
+// Pure evaluation of the card input for the chosen length (used by the UI and by generate()).
+function cardEval(len) {
+  const p = parseCards(cta.value);
+  const n = p.cards.length, need = CARD_ROUNDS[len];
+  const full = Math.floor(n / 52), rem = n % 52;
+  const chk = cardChecks(p.cards);
+  const strong = chk.flags.some(f => f[0] === 'strong');
+  const done = !p.bad && !chk.dups.length && rem === 0 && full >= need;
+  let why = '';
+  if (!selfTestOk) why = tx('Zelftest mislukt, berekenen geblokkeerd.', 'Self-test failed, calculation blocked.');
+  else if (p.bad) why = tx('Verwijder eerst de ongeldige invoer.', 'Remove the invalid input first.');
+  else if (chk.dups.length) why = tx('Herstel eerst de dubbele kaart.', 'Fix the duplicate card first.');
+  else if (rem) why = tx('Maak ronde ' + (full + 1) + ' af: nog ' + (52 - rem) + ' kaarten.', 'Finish round ' + (full + 1) + ': ' + (52 - rem) + ' more cards.');
+  else if (full < need) why = tx('Nog ' + (need - full) + (need - full === 1 ? ' ronde' : ' rondes') + ' van 52 kaarten nodig.', (need - full) + ' more round' + (need - full === 1 ? '' : 's') + ' of 52 cards needed.');
+  else if (strong && !$('cardConfirmStrong').checked) why = tx('Bevestig eerst de waarschuwing over het schudden.', 'Confirm the shuffle warning first.');
+  return { p, n, need, full, rem, chk, strong, done, why, canon: p.cards.join(' ') };
+}
+function updateCards(len) {
+  const e = cardEval(len), { p, n, need, full, rem, chk } = e;
+  if (!cta.value.trim()) testCards = false;
+  $('testBannerCards').classList.toggle('hidden', !testCards);
+  $('lengthInfo').textContent = need === 1
+    ? tx('12 woorden: één volledige ronde van 52 kaarten (225 bit bij perfect schudden, 128 nodig).', '12 words: one full round of 52 cards (225 bit with a perfect shuffle, 128 needed).')
+    : tx('24 woorden: twee volledige rondes van 52 kaarten, met tussendoor opnieuw grondig schudden (451 bit bij perfect schudden, 256 nodig).', '24 words: two full rounds of 52 cards, reshuffling thoroughly in between (451 bit with a perfect shuffle, 256 needed).');
+
+  // invalid input and duplicates
+  cta.classList.toggle('invalid', !!p.bad || chk.dups.length > 0);
+  const msgs = [];
+  if (p.bad) msgs.push(tx('Ongeldige invoer "' + p.bad.tok + '" (na kaart ' + (p.bad.index - 1) + '). Gebruik rang A 2-9 T J Q K (of 10) en kleur S H C D (of ♠ ♥ ♣ ♦), bijv. TH.', 'Invalid input "' + p.bad.tok + '" (after card ' + (p.bad.index - 1) + '). Use rank A 2-9 T J Q K (or 10) and suit S H C D (or ♠ ♥ ♣ ♦), e.g. TH.'));
+  chk.dups.forEach(d => msgs.push(tx(cardLabel(d.card) + ' staat in ronde ' + d.round + ' twee keer (kaart ' + d.a + ' en ' + d.b + '). Elke kaart hoort precies één keer per ronde voor te komen.', cardLabel(d.card) + ' appears twice in round ' + d.round + ' (card ' + d.a + ' and ' + d.b + '). Each card must appear exactly once per round.')));
+  $('cardInvalidMsg').textContent = msgs.join(' ');
+  $('cardInvalidMsg').classList.toggle('hidden', !msgs.length);
+
+  // meter and stats
+  const target = need * 52;
+  const fill = $('cardMeterFill');
+  fill.style.width = Math.min(100, n / target * 100) + '%';
+  fill.className = 'fill' + (e.done ? ' good' : n > 0 ? ' mid' : '');
+  $('cstCount').textContent = n;
+  $('cstRounds').textContent = full + ' / ' + need;
+  $('cstBits').textContent = cardBits(n).toFixed(0);
+  $('cstNeed').textContent = LENGTHS[len].bits;
+  const st = $('cardStatus');
+  if (e.done) { st.className = 'status good'; st.textContent = tx('Compleet: ' + full + (full === 1 ? ' volledige ronde' : ' volledige rondes') + ', ' + cardBits(n).toFixed(0) + ' bit bij perfect schudden. Hoe veilig dat echt is, hangt af van hoe grondig je hebt geschud.', 'Complete: ' + full + ' full round' + (full === 1 ? '' : 's') + ', ' + cardBits(n).toFixed(0) + ' bit with a perfect shuffle. How secure it really is depends on how thoroughly you shuffled.'); }
+  else if (n === 0) { st.className = 'status bad'; st.textContent = tx('Nog geen kaarten. Schud grondig en voer ronde 1 in: 52 kaarten.', 'No cards yet. Shuffle thoroughly and enter round 1: 52 cards.'); }
+  else if (rem) { st.className = 'status bad'; st.textContent = tx('Ronde ' + (full + 1) + ': nog ' + (52 - rem) + ' kaarten.', 'Round ' + (full + 1) + ': ' + (52 - rem) + ' more cards.'); }
+  else if (full < need) { st.className = 'status mid'; st.textContent = tx('Ronde ' + full + ' compleet. Schud de stok nu opnieuw grondig (minstens 7 keer riffelen) en voer ronde ' + (full + 1) + ' in.', 'Round ' + full + ' complete. Now reshuffle the deck thoroughly (at least 7 riffles) and enter round ' + (full + 1) + '.'); }
+  else { st.className = 'status bad'; st.textContent = tx('Herstel eerst de fout hierboven.', 'Fix the error above first.'); }
+
+  // grid: shows the round being entered; after the last required round it shows that round, locked
+  const locked = n > 0 && rem === 0 && full >= need;
+  const cr = locked ? full - 1 : full;
+  const round = p.cards.slice(cr * 52, cr * 52 + 52);
+  const pos = {};
+  round.forEach((c, i) => { if (!(c in pos)) pos[c] = i + 1; });
+  const lastCard = round.length ? round[round.length - 1] : null;
+  $('cardRoundInfo').textContent = locked
+    ? tx('Ronde ' + (cr + 1) + ' van ' + need + ': compleet.', 'Round ' + (cr + 1) + ' of ' + need + ': complete.')
+    : tx('Ronde ' + (cr + 1) + ' van ' + Math.max(need, cr + 1) + ': ' + round.length + ' van 52 kaarten ingevoerd, nog ' + (52 - round.length) + '.', 'Round ' + (cr + 1) + ' of ' + Math.max(need, cr + 1) + ': ' + round.length + ' of 52 cards entered, ' + (52 - round.length) + ' to go.');
+  document.querySelectorAll('#cardGrid .cc').forEach(b => {
+    const c = b.dataset.c, used = c in pos;
+    b.disabled = used || locked || !!p.bad;
+    b.classList.toggle('used', used);
+    b.classList.toggle('last', used && c === lastCard && !locked);
+    b.classList.toggle('done', locked);
+    b.classList.toggle('pend', !used && !locked && cardPend === c[0]);
+    b.querySelector('.ix').textContent = used ? pos[c] : '';
+    b.setAttribute('aria-label', (c[0] === 'T' ? '10' : c[0]) + ' ' + suitName(c[1]) + (used ? tx(', al ingevoerd als kaart ', ', already entered as card ') + pos[c] : ''));
+  });
+  $('cardKeyHint').textContent = cardKeyMsg || (cardPend
+    ? tx('Rang ' + (cardPend === 'T' ? '10' : cardPend) + ' gekozen, typ nu de kleur: S H C D (Esc annuleert).', 'Rank ' + (cardPend === 'T' ? '10' : cardPend) + ' chosen, now type the suit: S H C D (Esc cancels).')
+    : '');
+
+  // quality flags
+  const fl = $('cardFlags');
+  fl.innerHTML = '';
+  const li = (cls, t) => { const x = document.createElement('li'); x.className = cls; x.textContent = t; fl.appendChild(x); };
+  if (n >= 52 && !chk.flags.length) li('ok', tx('Geen sporen van een gesorteerde of te weinig geschudde stok gevonden. Dat bewijst niet dat er goed geschud is.', 'No traces of a sorted or insufficiently shuffled deck found. That does not prove the shuffle was good.'));
+  else if (n < 52) li('', tx('De controle op schudsporen werkt per ronde en is het betrouwbaarst bij een volledige ronde.', 'The check for shuffle traces works per round and is most reliable on a full round.'));
+  chk.flags.forEach(([lvl, t]) => li(lvl, t));
+  $('cardConfirmWrap').classList.toggle('hidden', !e.strong);
+  if (!e.strong) $('cardConfirmStrong').checked = false;
+
+  // generate button
+  $('btnGenerate').disabled = !!e.why;
+  $('genHint').textContent = e.why;
+
+  // any change after generating invalidates the shown result
+  if (lastRolls !== null && ((lastRolls.source === 'cards' && (lastRolls.rolls !== e.canon || lastRolls.len !== len)) || lastRolls.source === 'dice' || (lastRolls.source === 'input' && lastRolls.len !== len))) clearResult();
+}
+function appendCard(code) {
+  const n = parseCards(cta.value).cards.length;
+  const sep = n === 0 ? '' : n % 52 === 0 ? '\n\n' : n % 13 === 0 ? '\n' : ' ';
+  cta.value = cta.value.replace(/[\s,;]+$/, '') + sep + code;
+  cardPend = null;
+  update();
+}
+function undoCard() {
+  cta.value = cta.value.replace(/[^\s,;]+[\s,;]*$/, '').replace(/[\s,;]+$/, '');
+  cardPend = null;
+  update();
+}
+function randBelow(n) {
+  // uniform integer 0..n-1 from getRandomValues, rejection sampling (no modulo bias)
+  const lim = Math.floor(0x100000000 / n) * n, buf = new Uint32Array(1);
+  for (;;) { crypto.getRandomValues(buf); if (buf[0] < lim) return buf[0] % n; }
+}
+function testCardsFill() {
+  // Test only: Fisher-Yates shuffle(s) from the browser CSPRNG. Fails closed, no fallback.
+  if (!(window.crypto && typeof crypto.getRandomValues === 'function')) { alertBox(tx('Testkaarten niet mogelijk: deze browser heeft geen crypto.getRandomValues.', 'Test cards not possible: this browser has no crypto.getRandomValues.')); return; }
+  const rounds = [];
+  for (let r = 0; r < CARD_ROUNDS[currentLen()]; r++) {
+    const d = [];
+    CARD_SUITS.split('').forEach(s => CARD_RANKS.split('').forEach(k => d.push(k + s)));
+    for (let i = d.length - 1; i > 0; i--) { const j = randBelow(i + 1); [d[i], d[j]] = [d[j], d[i]]; }
+    const lines = [];
+    for (let i = 0; i < 52; i += 13) lines.push(d.slice(i, i + 13).join(' '));
+    rounds.push(lines.join('\n'));
+  }
+  cta.value = rounds.join('\n\n');
+  testCards = true;
+  cardPend = null;
+  $('cardConfirmStrong').checked = false;
+  update();
+}
+function setSource(s) {
+  entSource = s;
+  cardPend = null;
+  cardKeyMsg = '';
+  update();
+  (s === 'cards' ? $('cardArea') : $('diceArea')).querySelector('h2').scrollIntoView({ block: 'nearest' });
+}
+function onCardKey(e) {
+  if (entSource !== 'cards' || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (!$('qrModal').classList.contains('hidden') || !$('addrModal').classList.contains('hidden') || !$('xpubModal').classList.contains('hidden')) return;
+  const t = e.target;
+  if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
+  const k = e.key.length === 1 ? e.key.toUpperCase() : e.key;
+  const hadMsg = !!cardKeyMsg;
+  cardKeyMsg = '';
+  if (k === 'Backspace') { e.preventDefault(); undoCard(); return; }
+  if (k === 'Escape') { if (cardPend || hadMsg) { cardPend = null; update(); } return; }
+  const rank = k === '0' || k === '1' ? 'T' : (k.length === 1 && CARD_RANKS.includes(k) ? k : null);
+  const suit = { S: 'S', H: 'H', C: 'C', D: 'D', R: 'D' }[k] || null;   // R = ruiten (Dutch), not advertised
+  if (cardPend && suit) {
+    e.preventDefault();
+    const code = cardPend + suit, b = document.querySelector('#cardGrid .cc[data-c="' + code + '"]');
+    cardPend = null;
+    if (b && !b.disabled) { appendCard(code); return; }
+    cardKeyMsg = b && b.classList.contains('used') ? tx(cardLabel(code) + ' is in deze ronde al ingevoerd.', cardLabel(code) + ' has already been entered in this round.') : tx('Nu geen kaart in te voeren.', 'No card can be entered now.');
+    update();
+    return;
+  }
+  if (rank && !(cardPend === 'T' && k === '0')) { e.preventDefault(); cardPend = rank; update(); return; }
+  if (hadMsg) update();
+}
+
 function renderFaceTable(a) {
   const n = a.n, tb = $('faceRows');
   tb.innerHTML = '';
@@ -1890,21 +2239,29 @@ function renderFaceTable(a) {
 
 async function generate() {
   const len = currentLen();
-  const { rolls, bad } = parseInput();
-  if (!selfTestOk || bad >= 0 || rolls.length < effLen(len).min) return;
+  let input, source, test;
+  if (entSource === 'cards') {
+    const c = cardEval(len);
+    if (c.why) return;
+    input = c.canon; source = 'cards'; test = testCards;
+  } else {
+    const { rolls, bad } = parseInput();
+    if (!selfTestOk || bad >= 0 || rolls.length < effLen(len).min) return;
+    input = rolls; source = 'dice'; test = testMode;
+  }
   let res;
   try {
-    res = rollsToSeed(rolls, len);
+    res = rollsToSeed(input, len);   // SHA-256 over the ASCII input, for dice and cards alike
     res.qr = compactSeedQR(res.ent);
     if (window.crypto && crypto.subtle && crypto.subtle.digest) {
-      const d2 = new Uint8Array(await crypto.subtle.digest('SHA-256', ascii(rolls)));
+      const d2 = new Uint8Array(await crypto.subtle.digest('SHA-256', ascii(input)));
       if (hex(d2) !== hex(res.digest)) throw new Error(tx('SHA-256 van WebCrypto en eigen implementatie verschillen', 'SHA-256 from WebCrypto and own implementation differ'));
     }
   } catch (e) {
     alertBox(tx('Berekening afgebroken: ', 'Calculation aborted: ') + e.message);
     return;
   }
-  showResult(res, { rolls, len, source: 'dice' });
+  showResult(res, { rolls: input, len, source, test, hosted: HOSTED });
 }
 
 function qrMetaText(res) {
@@ -1929,20 +2286,23 @@ function showResult(res, meta) {
   $('secret').classList.remove('blur');
   $('btnToggle').textContent = tx('Verbergen', 'Hide');
   setTimeout(autoHideArm, 0);
+  document.querySelectorAll('.lblDice').forEach(x => x.classList.toggle('hidden', meta.source === 'cards'));
+  document.querySelectorAll('.lblCards').forEach(x => x.classList.toggle('hidden', meta.source !== 'cards'));
   $('dRolls').textContent = meta.source === 'input' ? tx('n.v.t. (ingevoerde seed)', 'n/a (entered seed)') : meta.rolls;
   $('dHash').textContent = meta.source === 'input' ? tx('n.v.t. (ingevoerde seed)', 'n/a (entered seed)') : hex(res.digest);
   $('dEntBits').textContent = LENGTHS[len].bits;
   $('dEnt').textContent = hex(res.ent);
   $('dCs').textContent = res.cs;
   $('dIdx').textContent = res.idx.join(' ');
-  $('testBannerOut').classList.toggle('hidden', !(testMode && meta.source === 'dice'));
+  $('testBannerOut').classList.toggle('hidden', !meta.test);
+  $('hostedBannerOut').classList.toggle('hidden', !meta.hosted);
   $('verifyBannerOut').classList.toggle('hidden', !(verifyMode() && meta.source === 'dice'));
   $('inputBannerOut').classList.toggle('hidden', meta.source !== 'input');
   lastWords = res.words;
   lastShown = { res, meta };
   updateFingerprint();
   $('result').classList.remove('hidden');
-  lastRolls = { rolls: parseInput().rolls, len, verify: verifyMode(), source: meta.source };
+  lastRolls = { rolls: meta.source === 'cards' ? meta.rolls : parseInput().rolls, len, verify: verifyMode(), source: meta.source };
 }
 
 function seedInLen() { return +document.querySelector('input[name=seedInLen]:checked').value; }
@@ -2189,12 +2549,11 @@ function loadSeed() {
     msg.classList.remove('hidden');
     return;
   }
-  testMode = false;
   const len = p.count;
   document.querySelector('input[name=len][value="' + len + '"]').checked = true;
   clearResult();
   update();
-  showResult(res, { len, source: 'input' });
+  showResult(res, { len, source: 'input', hosted: HOSTED });
   $('seedInHint').textContent = tx('Geladen: ' + len + ' woorden.', 'Loaded: ' + len + ' words.');
   $('seedSuggest').innerHTML = '';
   $('result').scrollIntoView({ block: 'start' });
@@ -2227,6 +2586,11 @@ function testRolls() {
 
 function wipeAll() {
   testMode = false;
+  testCards = false;
+  cardPend = null;
+  cardKeyMsg = '';
+  cta.value = '';
+  $('cardConfirmStrong').checked = false;
   clearSeedBoxes();
   $('seedInArea').classList.add('hidden');
   $('btnSeedInToggle').textContent = tx('Bestaande seed invoeren', 'Enter existing seed');
@@ -2239,7 +2603,7 @@ function wipeAll() {
 
 function netStatus() {
   const online = navigator.onLine;
-  $('bannerOnline').classList.toggle('hidden', !online);
+  $('bannerOnline').classList.toggle('hidden', !online || HOSTED);   // the trial banner replaces it: going offline does not make a hosted copy trustworthy
   const b = $('badgeNet');
   b.textContent = online ? tx('Netwerk: ONLINE', 'Network: ONLINE') : tx('Netwerk: offline', 'Network: offline');
   b.className = 'badge ' + (online ? 'bad' : 'ok');
@@ -2260,6 +2624,15 @@ $('btnUndo').addEventListener('click', () => { ta.value = ta.value.replace(/[1-6
 $('btnClearRolls').addEventListener('click', wipeAll);
 $('btnWipe').addEventListener('click', wipeAll);
 $('btnTestRolls').addEventListener('click', testRolls);
+buildCardGrid();
+cta.addEventListener('input', () => { cardPend = null; cardKeyMsg = ''; update(); });
+$('cardConfirmStrong').addEventListener('change', update);
+$('cardGrid').addEventListener('click', e => { const b = e.target.closest('.cc'); if (b && !b.disabled) appendCard(b.dataset.c); });
+$('btnCardUndo').addEventListener('click', undoCard);
+$('btnCardClear').addEventListener('click', () => { cta.value = ''; testCards = false; cardPend = null; cardKeyMsg = ''; $('cardConfirmStrong').checked = false; update(); });
+$('btnTestCards').addEventListener('click', testCardsFill);
+$('btnSource').addEventListener('click', () => setSource(entSource === 'cards' ? 'dice' : 'cards'));
+document.addEventListener('keydown', onCardKey);
 $('btnLoadSeed').addEventListener('click', loadSeed);
 $('btnClearSeedIn').addEventListener('click', () => { clearSeedBoxes(); if (lastRolls && lastRolls.source === 'input') clearResult(); focusSeedBox(0); });
 $('btnLastWord').addEventListener('click', () => {
@@ -2325,8 +2698,8 @@ $('btnToggle').addEventListener('click', () => {
 $('qrGrid').addEventListener('change', () => { if (lastQr) $('qrbox').innerHTML = qrSvg(lastQr, $('qrGrid').checked); });
 window.addEventListener('online', netStatus);
 window.addEventListener('offline', netStatus);
-window.addEventListener('pagehide', () => { ta.value = ''; clearSeedBoxes(); testMode = false; clearResult(); });
-window.addEventListener('pageshow', () => { ta.value = ''; update(); });
+window.addEventListener('pagehide', () => { ta.value = ''; cta.value = ''; clearSeedBoxes(); testMode = false; testCards = false; clearResult(); });
+window.addEventListener('pageshow', () => { ta.value = ''; cta.value = ''; update(); });
 
 /* init */
 let errs;
@@ -2334,7 +2707,7 @@ try { errs = selfTest(); } catch (e) { errs = [tx('uitzondering: ', 'exception: 
 selfTestOk = errs.length === 0;
 const hasSubtle = !!(window.crypto && crypto.subtle && crypto.subtle.digest);
 function renderBadges() {
-  $('badgeTest').textContent = selfTestOk ? tx('Zelftest: OK (SHA-256/512, woordenlijst, BIP39, laatste woord, fingerprint, BIP84, xpub/descriptor, SeedQR, xpub-QR)', 'Self-test: OK (SHA-256/512, wordlist, BIP39, last word, fingerprint, BIP84, xpub/descriptor, SeedQR, xpub QR)') : tx('Zelftest: MISLUKT', 'Self-test: FAILED');
+  $('badgeTest').textContent = selfTestOk ? tx('Zelftest: OK (SHA-256/512, woordenlijst, BIP39, kaarten, laatste woord, fingerprint, BIP84, xpub/descriptor, SeedQR, xpub-QR)', 'Self-test: OK (SHA-256/512, wordlist, BIP39, cards, last word, fingerprint, BIP84, xpub/descriptor, SeedQR, xpub QR)') : tx('Zelftest: MISLUKT', 'Self-test: FAILED');
   $('badgeTest').className = 'badge ' + (selfTestOk ? 'ok' : 'bad');
   $('badgeSubtle').textContent = tx('SHA-256 dubbelcheck: ', 'SHA-256 double check: ') + (hasSubtle ? tx('actief (WebCrypto)', 'active (WebCrypto)') : tx('niet beschikbaar', 'not available'));
   $('badgeSubtle').className = 'badge ' + (hasSubtle ? 'ok' : 'warn');
@@ -2344,6 +2717,8 @@ renderBadges();
 if (!selfTestOk) alertBox(tx('Zelftest mislukt: ', 'Self-test failed: ') + errs.join(', ') + tx('. Het bestand is beschadigd of gewijzigd. Niet gebruiken.', '. The file is damaged or modified. Do not use.'));
 $('langNl').addEventListener('click', () => setLang('nl'));
 $('langEn').addEventListener('click', () => setLang('en'));
+$('bannerHosted').classList.toggle('hidden', !HOSTED);
+$('hostedSeedInWarn').classList.toggle('hidden', !HOSTED);
 netStatus();
 update();
 })();

@@ -6,6 +6,29 @@ Eén losse HTML-pagina die **echte dobbelsteenworpen** omzet in een BIP39-seed (
 
 > **Status: niet geaudit.** De cryptografie in deze pagina (SHA-256, SHA-512, PBKDF2, RIPEMD-160, secp256k1, BIP32, QR-codering) is in gewone JavaScript geschreven. Ze is getest tegen officiële testvectoren en onafhankelijke bibliotheken, maar **niet** beoordeeld door een onafhankelijke security-auditor. Controleer de uitkomst altijd in een tweede, onafhankelijke tool voordat je echte waarde op een seed zet. Geen garantie, zie [LICENSE](LICENSE).
 
+## Online uitproberen (probeerversie)
+
+**[Open de online probeerversie](https://jurgen2005.github.io/dice-seed-bip39/dist/dice-seed.html)**
+
+De online versie is bedoeld om rond te kijken en de tool uit te proberen, niet om een echte seed te maken. Het is hetzelfde bestand als `dist/dice-seed.html` in deze repository. De pagina ziet zelf dat ze via een webadres is geopend en niet als bestand op je eigen computer, en schakelt dan over op de probeermodus:
+
+- bovenaan een rode balk "ONLINE PROBEERVERSIE", en "online probeerversie" in de titel van het tabblad;
+- elke uitkomst krijgt het label **TESTSEED**, ook als je echte worpen of kaarten invoert, en ook een bestaande seed die je intypt;
+- bij "Bestaande seed invoeren" staat een vaste waarschuwing om daar nooit een echte seed te typen.
+
+De berekening is dezelfde als in het gedownloade bestand: dezelfde worpen geven dezelfde woorden. Je kunt de online versie dus gebruiken om de stappen te leren en het narekenen in de tool van Ian Coleman te oefenen.
+
+Wat dit voor jou betekent:
+
+- **Gebruik een seed uit de online versie nooit voor echte waarde**, ook niet als je echt met dobbelstenen hebt gegooid. De pagina draait dan op je gewone computer met internet, in je dagelijkse browser, en je hebt niet gecontroleerd welk bestand je hebt gekregen.
+- **Typ nooit een bestaande, echte seed in de online versie.** Een browserextensie met toegang tot alle websites (wachtwoordmanagers, vertaal- en schrijfhulpen hebben dat vaak) kan alles op de pagina lezen, ook de woorden. In Chrome en Edge kunnen extensies lokale bestanden alleen lezen als je dat apart toestaat. Heb je toch een echte seed ingetypt: behandel hem als gelekt en zet het saldo over naar een nieuwe seed.
+- **Je kunt niet controleren wat je krijgt.** GitHub Pages levert wat er op dat moment in de `main`-branch staat, normaal gesproken de nieuwste release. De SHA-256-controle onder *Controleren voor gebruik* werkt alleen op een gedownload bestand. Wie toegang heeft tot de repository of het GitHub-account (de beheerder, of iemand die het account overneemt), kan de online pagina veranderen. De probeermodus beschermt tegen vergissingen, niet tegen een aangepaste kopie: zo'n kopie kan de balk en de markering gewoon weglaten.
+- **Je bezoek is niet anoniem.** De pagina zelf verstuurt niets (na het laden blokkeert de Content Security Policy alle netwerkverkeer), maar GitHub ziet, zoals elke webhost, je IP-adres als je de pagina opent.
+- **Na het laden de verbinding verbreken helpt niet.** Het probleem is niet de verbinding tijdens het rekenen, maar het ongecontroleerde bestand en de dagelijkse computer. Daarom vervangt online de balk van de probeerversie de melding "Deze computer is online".
+- De probeermodus gaat aan bij alles wat geen lokaal bestand (`file://`) is, dus ook bij een webserver op je eigen computer. Voor echt gebruik open je het gedownloade en gecontroleerde bestand rechtstreeks vanaf de schijf.
+
+Voor echt gebruik: zie *Controleren voor gebruik* en *Veilig gebruik* hieronder.
+
 ## Waarom
 
 Een seed uit de interne random-generator van een apparaat kun je van buitenaf niet controleren. Het Coldcard-incident van 2026 liet zien dat dit jarenlang mis kan gaan zonder dat iemand het merkt. Met dobbelstenen ben **jij** de bron van de willekeur. De omzetting van worpen naar woorden ligt vast, dus iedereen kan haar narekenen.
@@ -20,6 +43,7 @@ Deze pagina:
 
 - **Seed uit worpen:** 12 of 24 woorden. Minimaal 56 / 111 worpen (harde grens), aanbevolen 100 / 199. Meer worpen tellen altijd mee.
 - **Controlemodus:** voor SeedSigners 50 / 99 worpen. Duidelijk gemarkeerd en alleen bedoeld om na te rekenen.
+- **Speelkaarten als alternatief (achter een knop):** één volledig geschudde stok (52 kaarten, 225 bit) voor 12 woorden, twee rondes met tussendoor opnieuw schudden voor 24 woorden. Visueel raster van 4 x 13 kaarten (ingevoerde kaarten worden grijs met hun volgnummer), sneltoetsen (rang, dan kleur) of getypte tekst zoals `AS TH 9D`. Elke kaart moet precies één keer per ronde voorkomen; controle op resten van een gesorteerde stok en op te weinig schudden tussen de rondes. De woorden zijn `SHA-256("AS TH 9D ...")`, na te rekenen met `shasum` en Ian Coleman (Hex, raw entropy).
 - **Kwaliteitscontrole van de worpen:** chi² over de zes kanten, afwijking per kant in σ met meetbaarheid, lange reeksen en getypte patronen.
 - **Fingerprint:** master fingerprint (BIP32), met optionele BIP39-passphrase (NFKD, met een waarschuwing bij niet-ASCII-tekens).
 - **Compact SeedQR** (SeedSigner-standaard):
@@ -32,6 +56,7 @@ Deze pagina:
 - **Watch-only account-sleutel** `m/84'/0'/0'`: als descriptor, `[fingerprint/pad]zpub`, zpub of xpub, als tekst en als QR.
 - **Bestaande seed:** invoeren in 12 of 24 vakjes met automatisch aanvullen, en een geldig laatste woord berekenen uit muntworpen.
 - **Automatisch verbergen:** woorden en QR worden na een tijd zonder activiteit verborgen.
+- **Online probeerversie op GitHub Pages:** de pagina ziet dat ze niet als lokaal bestand is geopend en markeert elke uitkomst als TESTSEED (zie *Online uitproberen*).
 - **Twee talen:** Nederlands en Engels. De pagina start in de taal van de browser en slaat de keuze niet op.
 - **Zelftest bij elke keer laden:**
   - NIST SHA-256;
@@ -43,7 +68,7 @@ Deze pagina:
 
 ## Controleren voor gebruik
 
-1. Download `dice-seed.html` uit de [nieuwste release](../../releases/latest).
+1. Download `dice-seed.html` uit de [nieuwste release](https://github.com/jurgen2005/dice-seed-bip39/releases/latest).
 2. Vergelijk de SHA-256 met `SHA256SUMS` in de release en in deze repository:
    - macOS: `shasum -a 256 dice-seed.html`
    - Linux: `sha256sum dice-seed.html`
@@ -53,7 +78,7 @@ Deze pagina:
 
 ## Veilig gebruik (kort)
 
-1. Gebruik een offline computer, bij voorkeur opgestart van een live-USB (bijvoorbeeld Tails), zonder netwerk.
+1. Gebruik het gedownloade en gecontroleerde bestand, niet de online probeerversie, op een offline computer, bij voorkeur opgestart van een live-USB (bijvoorbeeld Tails), zonder netwerk.
 2. Gebruik een goede dobbelsteen (een casinodobbelsteen is ideaal). Gooi echt: schudden en laten rollen, niet neerleggen en geen worp overdoen. Schrijf de worpen eerst op papier.
 3. Voer de worpen in, laat de seed berekenen en **reken dezelfde worpen na in een tweede tool** (Ian Coleman, Entropy, Base 10). Dezelfde woorden betekenen dat geen van beide tools je invoer heeft gemanipuleerd.
 4. Schrijf de woorden op papier of metaal. Geen foto, geen screenshot, niet kopiëren en plakken.
@@ -79,7 +104,7 @@ De build controleert ook twee dingen: dat de woordenlijst de officiële BIP39-`e
 | `src/templates/*.pdf` | Officiële SeedSigner-sjablonen `grid_wfingerprint` |
 | `src/i18n_en.json` | Engelse vertaling van de vaste Nederlandse tekst |
 | `build.py` | Vult de placeholders in en schrijft `dist/dice-seed.html` |
-| `tests/test_crosscheck.py` | Kruiscontrole tegen embit en zxing-cpp in headless Chromium |
+| `tests/test_crosscheck.py` | Kruiscontrole tegen embit en zxing-cpp in headless Chromium, plus de online probeermodus via `http://` |
 
 ## Tests
 
@@ -101,7 +126,9 @@ Getest in Chromium. Firefox en Safari zijn niet systematisch getest.
 
 - Geen bescherming tegen een gecompromitteerde computer, schermopname of iemand die meekijkt. Gebruik een offline live-USB.
 - De statistische controles vangen tikpatronen en grove scheefheid, geen subtiele. Daarvoor is het voorzichtige minimum.
-- De knop "Testworpen (random)" gebruikt de random-generator van de browser. Hij is er alleen om de tool uit te proberen, en de uitkomst krijgt het label TESTSEED. Nooit gebruiken voor echte waarde.
+- Bij speelkaarten hangt de veiligheid af van hoe grondig je schudt (minstens 7 keer riffelen), en dat zie je niet aan de uitkomst. De controles vangen alleen grove fouten.
+- De knoppen "Testworpen (random)" en "Testkaarten (random)" gebruiken de random-generator van de browser. Ze zijn er alleen om de tool uit te proberen, en de uitkomst krijgt het label TESTSEED. Nooit gebruiken voor echte waarde.
+- De online probeerversie is niet bedoeld voor echte waarde, zie *Online uitproberen*.
 - Niet geaudit, zie boven.
 
 ## Hoe dit gemaakt is
